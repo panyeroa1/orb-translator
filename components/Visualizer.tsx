@@ -28,52 +28,71 @@ const Visualizer: React.FC<VisualizerProps> = ({ analyser, isActive, size }) => 
   }, [size]);
 
   useEffect(() => {
-    if (!canvasRef.current || !analyser) return;
+    if (!canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const bufferLength = analyser.frequencyBinCount;
+    const bufferLength = analyser ? analyser.frequencyBinCount : 128;
     const dataArray = new Uint8Array(bufferLength);
     let animationFrame: number;
 
     const draw = () => {
       animationFrame = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(dataArray);
+
+      let bass: number, mids: number, highs: number, totalAvg: number;
+
+      if (isActive && analyser) {
+        analyser.getByteFrequencyData(dataArray);
+        const getAverage = (start: number, end: number) => {
+          let sum = 0;
+          for (let i = start; i < end; i++) sum += dataArray[i];
+          return sum / (end - start);
+        };
+        bass = getAverage(0, 10) / 255;
+        mids = getAverage(10, 50) / 255;
+        highs = getAverage(50, 100) / 255;
+        totalAvg = (bass + mids + highs) / 3;
+      } else {
+        // Subtle "breathing" animation for idle state
+        const time = Date.now() / 2000;
+        const breathing = (Math.sin(time) + 1) / 2; // Oscillator 0 to 1
+        bass = 0.05 + breathing * 0.08;
+        mids = 0.04 + breathing * 0.06;
+        highs = 0.03 + breathing * 0.04;
+        totalAvg = (bass + mids + highs) / 3;
+      }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      if (!isActive) return;
-
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
 
-      const getAverage = (start: number, end: number) => {
-        let sum = 0;
-        for (let i = start; i < end; i++) sum += dataArray[i];
-        return sum / (end - start);
-      };
-
-      const bass = getAverage(0, 10) / 255;
-      const mids = getAverage(10, 50) / 255;
-      const highs = getAverage(50, 100) / 255;
-      const totalAvg = (bass + mids + highs) / 3;
-
       ctx.globalCompositeOperation = 'screen';
 
+      const idleColors = [
+        'rgba(125, 211, 252, 0.4)', // Sky 300
+        'rgba(14, 165, 233, 0.3)',  // Sky 500
+        'rgba(186, 230, 253, 0.2)'  // Sky 200
+      ];
+
       particlesRef.current.forEach((p, i) => {
-        p.x += p.vx;
-        p.y += p.vy;
+        const speedMultiplier = isActive ? 1.0 : 0.3;
+        p.x += p.vx * speedMultiplier;
+        p.y += p.vy * speedMultiplier;
         
         if (p.x < 0 || p.x > size) p.vx *= -1;
         if (p.y < 0 || p.y > size) p.vy *= -1;
 
         const bandValue = i % 3 === 0 ? bass : i % 3 === 1 ? mids : highs;
-        const dynamicRadius = p.radius * (1.1 + bandValue * 0.7);
+        const dynamicRadius = p.radius * (1.1 + bandValue * 1.2);
+
+        // Switch color scheme based on activity
+        const color = isActive ? p.color : idleColors[i % idleColors.length];
 
         const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, dynamicRadius);
-        gradient.addColorStop(0, p.color);
+        gradient.addColorStop(0, color);
         gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
         ctx.fillStyle = gradient;
@@ -83,11 +102,19 @@ const Visualizer: React.FC<VisualizerProps> = ({ analyser, isActive, size }) => 
       });
 
       // Core Supernova
-      const coreSize = size * 0.35 * (1 + totalAvg * 1.0);
+      const coreSize = size * 0.35 * (1 + totalAvg * 1.5);
       const coreGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, coreSize);
-      coreGradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-      coreGradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
-      coreGradient.addColorStop(0.5, 'rgba(34, 211, 238, 0.6)');
+      
+      if (isActive) {
+        coreGradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+        coreGradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
+        coreGradient.addColorStop(0.5, 'rgba(34, 211, 238, 0.6)');
+      } else {
+        // Cloudy blue core for idle
+        coreGradient.addColorStop(0, 'rgba(186, 230, 253, 0.6)');
+        coreGradient.addColorStop(0.4, 'rgba(125, 211, 252, 0.3)');
+        coreGradient.addColorStop(0.8, 'rgba(14, 165, 233, 0.1)');
+      }
       coreGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
       ctx.fillStyle = coreGradient;
@@ -96,11 +123,11 @@ const Visualizer: React.FC<VisualizerProps> = ({ analyser, isActive, size }) => 
       ctx.fill();
 
       // Sharp Corona for high activity
-      if (totalAvg > 0.3) {
+      if (isActive && totalAvg > 0.25) {
         ctx.beginPath();
-        ctx.arc(centerX, centerY, (size / 2) * (0.8 + totalAvg * 0.2), 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${(totalAvg - 0.3) * 0.8})`;
-        ctx.lineWidth = 2;
+        ctx.arc(centerX, centerY, (size / 2) * (0.8 + totalAvg * 0.3), 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${(totalAvg - 0.2) * 0.8})`;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
     };

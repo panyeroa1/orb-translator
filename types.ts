@@ -5,8 +5,15 @@ export enum OrbStatus {
   TRANSLATING = 'Translating',
   BUFFERING = 'Buffering',
   SPEAKING = 'Speaking',
-  ERROR = 'Error'
+  ERROR = 'Error',
+  RECORDING = 'Recording'
 }
+
+export type AppMode = 'translate' | 'speaker';
+export type TranscriptionEngine = 'pro' | 'beta' | 'main';
+export type InputSource = 'mic' | 'internal' | 'screen';
+
+export type EmotionTone = 'NEUTRAL' | 'HAPPY' | 'SAD' | 'ANGRY' | 'URGENT' | 'CALM' | 'INTENSE' | 'CURIOUS';
 
 export interface TranscriptionResponse {
   id?: string;

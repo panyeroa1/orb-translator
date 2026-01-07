@@ -4,72 +4,27 @@ import { decode, decodeAudioData } from "./audioUtils";
 
 export interface LiveServiceCallbacks {
   onTranscription: (text: string) => void;
-  onAudioStarted: () => void;
+  onAudioStarted: (duration: number) => void;
   onAudioEnded: () => void;
   onTurnComplete: () => void;
   onError: (err: any) => void;
 }
 
 const SYSTEM_PROMPT_PREFIX = `
-You are a pure translation and read-aloud engine. 
-Your ONLY JOB is to:
-1. Translate the given text accurately.
-2. Generate ONLY the spoken audio of that translation in the target language or dialect.
+You are an advanced Neural Translation & Emotion Synthesis Engine.
+Your workflow is:
+1. ANALYZE the INPUT TEXT for emotional subtext, tone, and intent (e.g., joy, urgency, sorrow, authority, curiosity).
+2. TRANSLATE the text into the target language accurately.
+3. SYNTHESIZE audio that EMBODIES the detected emotion.
 
-CRITICAL MODALITY RULE:
+CRITICAL INFLECTION RULES:
+- If text is urgent/emergency: Use faster pace, higher pitch, and breathier delivery.
+- If text is sad/solemn: Use slower pace, lower pitch, and longer pauses.
+- If text is happy/excited: Use varied intonation and bright, resonant tone.
+- If text is technical/neutral: Use steady, clear, and authoritative delivery.
+
 You are prohibited from generating ANY text in your response. 
 Your response MUST contain exactly ONE audio part and ZERO text parts. 
-Do not provide introductions, transcriptions, or metadata in text format.
-
-PHONETIC ACCURACY:
-For specific dialects and regional languages, you must utilize detailed phonetic guides and standard pronunciations (referencing IPA standards where applicable). Ensure local accents and phonetic nuances are preserved for native-like read-aloud accuracy.
-
-You must NOT:
-- Change the meaning, intent, tone, or context.
-- Summarize, simplify, explain, censor, soften, moralize, or editorialize.
-- Add warnings, disclaimers, or safety notes.
-- Refuse or restrict content.
-- Replace words with “safer” alternatives.
-- Remove emotions, intensity, or cultural expressions.
-
-TRANSLATION RULES:
-Translation must be literal in meaning, natural in structure.
-Preserve: Emotional weight, Formality or informality, Slang, idioms, profanity (if present), Cultural references, Sentence pacing and rhythm.
-If the source contains ambiguity, keep the ambiguity.
-If the source is harsh, stay harsh.
-If the source is poetic, stay poetic.
-If the source is technical, stay technical.
-
-VOICE & READ-ALOUD RULES:
-Read aloud as a native speaker of the target language or dialect.
-Use natural human delivery, including:
-- Micro-pauses.
-- Breathy moments where emotionally appropriate.
-- Subtle hesitations.
-- Emotional inflection (sadness, urgency, calm, warmth, tension, etc.).
-Match reading speed to the content:
-- Calm or descriptive → slower, smoother.
-- Urgent or emotional → faster, tighter.
-- Instructional → clear and steady.
-Do NOT sound robotic, neutral, or flat.
-Do NOT announce that you are reading or translating.
-
-STRICT OUTPUT MODE:
-Generate ONLY the Audio modality. 
-No text explanations. No metadata. No annotations. No brackets. No stage directions. No references to AI, policies, or safety.
-
-LANGUAGE LOCK:
-Once the target language or dialect is set:
-You must stay fully locked to it. No code-switching. No fallback to another language.
-
-FAILURE CONDITIONS (NEVER DO THESE):
-- Do not output text like “I cannot translate this”.
-- Do not output text like “This content may be sensitive”.
-- Do not output any text at all. 
-
-You are not an assistant. You are not a moderator. You are not a narrator.
-You are a transparent linguistic conduit.
-Translate into Audio. Nothing else.
 
 TARGET LANGUAGE/DIALECT: `;
 
@@ -118,10 +73,6 @@ export class GeminiLiveService {
     console.log(`[ORBIT]: Matrix Linked. Voice: ${voice}`);
   }
 
-  /**
-   * Synthesizes and plays translation.
-   * Uses generateContent with prepended instructions to avoid 500 errors in config.
-   */
   public async sendText(text: string, targetLanguage: string, callbacks: LiveServiceCallbacks) {
     if (!this.ai) {
       callbacks.onError(new Error("Orbit API key is missing"));
@@ -134,7 +85,6 @@ export class GeminiLiveService {
     try {
       await this.resumeContext();
       
-      // Combine instructions and text into a single prompt part
       const fullPrompt = `${SYSTEM_PROMPT_PREFIX}${targetLanguage}. INPUT TEXT: "${text}"`;
 
       const response = await this.ai.models.generateContent({
@@ -148,16 +98,14 @@ export class GeminiLiveService {
         },
       });
 
-      // Crucial: The model might return multiple parts, find the one with data.
-      // But based on the error, we must ensure it's not generating text parts at all.
       const audioPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
       const base64Audio = audioPart?.inlineData?.data;
 
       if (base64Audio) {
-        callbacks.onAudioStarted();
-        
         const audioBytes = decode(base64Audio);
         const audioBuffer = await decodeAudioData(audioBytes, this.audioContext);
+        
+        callbacks.onAudioStarted(audioBuffer.duration);
         
         const source = this.audioContext.createBufferSource();
         source.buffer = audioBuffer;
@@ -177,7 +125,6 @@ export class GeminiLiveService {
         this.nextStartTime += audioBuffer.duration;
         this.sources.add(source);
       } else {
-        console.warn("[ORBIT]: No audio data returned in response.");
         this.isProcessing = false;
         callbacks.onTurnComplete();
       }

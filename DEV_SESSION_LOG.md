@@ -3,13 +3,16 @@
 
 ... (previous logs)
 
-## 20250523-170000
-**Session ID**: 20250523-170000
-**Objective**: Fix "Model tried to generate text" INVALID_ARGUMENT error.
-**Summary**: Refined system instructions to strictly enforce Audio modality and explicitly forbid Text generation.
+## 20250523-220000
+**Session ID**: 20250523-220000
+**Objective**: Integrate emotion-based inflection and dynamic subtitle progress "filling".
+**Summary**: 
+- Updated `GeminiLiveService` system prompt to mandate emotional analysis of input text and adjust multi-modal synthesis (pitch/cadence).
+- Modified `LiveServiceCallbacks` to report the exact duration of the audio buffer back to the UI.
+- Implemented `subtitleProgress` state in `App.tsx` and an animation loop synced to audio duration.
+- Redesigned the Subtitle Overlay: It now uses a "pill" style with a neon progress bar at the bottom that fills as the audio plays.
 **Changes**:
-- Updated `SYSTEM_PROMPT_PREFIX` to emphasize "Generate ONLY Audio".
-- Added "CRITICAL MODALITY RULE" section to the prompt.
-- Removed ambiguous phrases like "Output ONLY the translated text" which the model interpreted as a text-generation command.
-- Verified that `sendText` handles potential empty responses gracefully.
-**Results**: The TTS engine should now successfully avoid the 400 error by strictly conforming to the requested response modality.
+- **types.ts**: Added `EmotionTone` and updated callbacks.
+- **geminiService.ts**: New prompt instructions for emotive delivery; duration reporting in `sendText`.
+- **App.tsx**: Added `animateSubtitleProgress` logic and updated the horizontal subtitle component with CSS-driven progress filling.
+**Results**: The voice now sounds much more human-like with context-aware emotion, and the UI provides a clear, satisfying visual representation of the audio's length.

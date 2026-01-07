@@ -1,11 +1,12 @@
 
 import React from 'react';
-import { OrbStatus } from '../types';
+import { OrbStatus, AppMode } from '../types';
 import { ORB_SIZE } from '../constants';
 import Visualizer from './Visualizer';
 
 interface OrbProps {
   status: OrbStatus;
+  mode: AppMode;
   analyser: AnalyserNode | null;
   onMouseDown: (e: React.MouseEvent | React.TouchEvent) => void;
   onSettingsClick: (e: React.MouseEvent) => void;
@@ -16,6 +17,7 @@ interface OrbProps {
 
 const Orb: React.FC<OrbProps> = ({
   status,
+  mode,
   analyser,
   onMouseDown,
   onSettingsClick,
@@ -26,11 +28,13 @@ const Orb: React.FC<OrbProps> = ({
   const isSpeaking = status === OrbStatus.SPEAKING;
   const isTranslating = status === OrbStatus.TRANSLATING;
   const isBuffering = status === OrbStatus.BUFFERING;
+  const isRecording = status === OrbStatus.RECORDING;
   const isError = status === OrbStatus.ERROR;
 
   const getStatusColor = () => {
     if (isError) return 'from-rose-500 to-red-700 shadow-rose-600/60';
     if (isBuffering) return 'from-amber-400 to-orange-500 shadow-amber-500/50';
+    if (isRecording) return 'from-emerald-500 to-teal-600 shadow-emerald-600/50';
     if (isMonitoring || isSpeaking || isTranslating) {
       return 'from-cyan-500 to-blue-600 shadow-cyan-600/50';
     }
@@ -77,7 +81,7 @@ const Orb: React.FC<OrbProps> = ({
         flex flex-col items-center justify-center p-2 transition-all duration-300
         border-2 border-black/5 backdrop-blur-xl cursor-move
         shadow-[0_15px_45px_rgba(0,0,0,0.5)]
-        ${isTranslating || isBuffering ? 'animate-pulse' : ''}
+        ${isTranslating || isBuffering || isRecording ? 'animate-pulse' : ''}
         ${isDragging 
           ? 'scale-115 rotate-2 brightness-110 shadow-[0_40px_80px_rgba(0,0,0,0.8),0_0_20px_rgba(34,211,238,0.4)] ring-4 ring-white/50 z-[100]' 
           : isPressed 
@@ -88,7 +92,7 @@ const Orb: React.FC<OrbProps> = ({
         {/* Visualizer internal layer */}
         <Visualizer
           analyser={analyser}
-          isActive={isSpeaking}
+          isActive={isSpeaking || isRecording}
           size={ORB_SIZE}
         />
 
@@ -102,6 +106,11 @@ const Orb: React.FC<OrbProps> = ({
           {isBuffering ? (
             <svg className="w-7 h-7 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          ) : mode === 'speaker' ? (
+            <svg className={`w-7 h-7 ${isRecording ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 10v2a7 7 0 01-14 0v-2M12 19v4m-4 0h8" />
             </svg>
           ) : isMonitoring ? (
             <svg className={`w-7 h-7 ${isSpeaking ? 'animate-none' : 'animate-pulse'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

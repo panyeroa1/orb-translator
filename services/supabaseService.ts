@@ -59,6 +59,26 @@ export async function fetchLatestTranscription(meetingId: string): Promise<strin
   }
 }
 
+export async function pushTranscription(meetingId: string, text: string): Promise<boolean> {
+  if (!meetingId || !text) return false;
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/transcriptions`, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { ...HEADERS, 'Prefer': 'return=minimal' },
+      body: JSON.stringify([{ 
+        meeting_id: meetingId, 
+        transcribe_text_segment: text,
+        created_at: new Date().toISOString()
+      }])
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('[ORBIT]: Broadcaster failure.', error);
+    return false;
+  }
+}
+
 export async function registerUser(userId: string): Promise<boolean> {
   if (!userId) return false;
   try {
@@ -105,13 +125,8 @@ export async function getOrbitKeys(): Promise<string[]> {
 export async function addOrbitKey(newKey: string): Promise<boolean> {
   if (!newKey) return false;
   try {
-    // 1. Retrieve current pool
     const existingKeys = await getOrbitKeys();
-    
-    // If already exists, consider it a success
     if (existingKeys.includes(newKey)) return true;
-    
-    // 2. Update pool (FIFO capped at 20)
     const updatedKeys = [...existingKeys, newKey].slice(-20);
     const payload = {
       key: ADMIN_CONFIG_KEY,
@@ -119,8 +134,6 @@ export async function addOrbitKey(newKey: string): Promise<boolean> {
       updated_at: new Date().toISOString()
     };
 
-    // 3. Upsert into admin_config
-    // Crucial: ?on_conflict=key tells Supabase to merge based on the 'key' column unique constraint
     const response = await fetch(`${SUPABASE_URL}/rest/v1/admin_config?on_conflict=key`, {
       method: 'POST',
       mode: 'cors',
