@@ -1,6 +1,7 @@
 
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { decode, decodeAudioData } from "./audioUtils";
+import { EmotionTone } from "../types";
 
 export interface LiveServiceCallbacks {
   onTranscription: (text: string) => void;
@@ -8,25 +9,22 @@ export interface LiveServiceCallbacks {
   onAudioEnded: () => void;
   onTurnComplete: () => void;
   onError: (err: any) => void;
+  onEmotionDetected?: (emotion: EmotionTone) => void;
 }
 
 const SYSTEM_PROMPT_PREFIX = `
 You are an advanced Neural Translation & Emotion Synthesis Engine.
 Your workflow is:
-1. ANALYZE the INPUT TEXT for emotional subtext, tone, and intent (e.g., joy, urgency, sorrow, authority, curiosity).
-2. TRANSLATE the text into the target language accurately.
-3. SYNTHESIZE audio that EMBODIES the detected emotion.
+1. TRANSLATE the input text to the target language accurately, maintaining nuance and tone.
+2. ANALYZE the original text for emotional subtext.
+3. SYNTHESIZE audio of the TRANSLATED text only.
 
-CRITICAL INFLECTION RULES:
-- If text is urgent/emergency: Use faster pace, higher pitch, and breathier delivery.
-- If text is sad/solemn: Use slower pace, lower pitch, and longer pauses.
-- If text is happy/excited: Use varied intonation and bright, resonant tone.
-- If text is technical/neutral: Use steady, clear, and authoritative delivery.
+RULES:
+- You MUST only speak the TRANSLATED version of the provided text.
+- Do NOT repeat the input text.
+- ZERO text output is permitted. Only audio.
 
-You are prohibited from generating ANY text in your response. 
-Your response MUST contain exactly ONE audio part and ZERO text parts. 
-
-TARGET LANGUAGE/DIALECT: `;
+TARGET LANGUAGE: `;
 
 export class GeminiLiveService {
   private ai: GoogleGenAI | null = null;
@@ -38,16 +36,20 @@ export class GeminiLiveService {
   private isProcessing: boolean = false;
   
   constructor(apiKey?: string) {
-    if (apiKey) {
-      this.ai = new GoogleGenAI({ apiKey: apiKey });
+    const finalKey = apiKey || process.env.API_KEY;
+    if (finalKey) {
+      this.ai = new GoogleGenAI({ apiKey: finalKey });
     }
+    
     this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
     this.outputNode = this.audioContext.createGain();
     this.outputNode.connect(this.audioContext.destination);
   }
 
   public updateApiKey(apiKey: string) {
-    this.ai = new GoogleGenAI({ apiKey: apiKey });
+    if (apiKey) {
+      this.ai = new GoogleGenAI({ apiKey: apiKey });
+    }
   }
 
   private async resumeContext() {
@@ -63,19 +65,33 @@ export class GeminiLiveService {
     return analyser;
   }
 
-  public async connect(
-    targetLanguage: string, 
-    voice: string, 
-    callbacks: LiveServiceCallbacks
-  ) {
+  public async connect(targetLanguage: string, voice: string, callbacks: LiveServiceCallbacks) {
     this.currentVoice = voice;
     await this.resumeContext();
-    console.log(`[ORBIT]: Matrix Linked. Voice: ${voice}`);
+    console.log(`[ORBIT]: Synthesis Engine Online. Target: ${targetLanguage}`);
+  }
+
+  public async analyzeEmotion(text: string): Promise<EmotionTone> {
+    if (!this.ai) return 'NEUTRAL';
+    try {
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Analyze the following text and return its primary emotional tone from this list: NEUTRAL, HAPPY, SAD, ANGRY, URGENT, CALM, INTENSE, CURIOUS. Return ONLY the word. Text: "${text}"`,
+        config: {
+          responseMimeType: "text/plain",
+          temperature: 0.1,
+        }
+      });
+      const emotion = response.text?.trim().toUpperCase() as EmotionTone;
+      return ['NEUTRAL', 'HAPPY', 'SAD', 'ANGRY', 'URGENT', 'CALM', 'INTENSE', 'CURIOUS'].includes(emotion) ? emotion : 'NEUTRAL';
+    } catch (e) {
+      return 'NEUTRAL';
+    }
   }
 
   public async sendText(text: string, targetLanguage: string, callbacks: LiveServiceCallbacks) {
     if (!this.ai) {
-      callbacks.onError(new Error("Orbit API key is missing"));
+      callbacks.onError(new Error("API Key Missing"));
       return;
     }
 
@@ -84,6 +100,10 @@ export class GeminiLiveService {
 
     try {
       await this.resumeContext();
+
+      this.analyzeEmotion(text).then(emotion => {
+        if (callbacks.onEmotionDetected) callbacks.onEmotionDetected(emotion);
+      });
       
       const fullPrompt = `${SYSTEM_PROMPT_PREFIX}${targetLanguage}. INPUT TEXT: "${text}"`;
 
@@ -135,10 +155,6 @@ export class GeminiLiveService {
   }
 
   public disconnect() {
-    this.stopAllAudio();
-  }
-
-  private stopAllAudio() {
     for (const source of this.sources) {
       try { source.stop(); } catch(e) {}
     }

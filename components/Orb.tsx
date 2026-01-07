@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { OrbStatus, AppMode } from '../types';
+import { OrbStatus, AppMode, EmotionTone } from '../types';
 import { ORB_SIZE } from '../constants';
 import Visualizer from './Visualizer';
 
@@ -13,6 +13,7 @@ interface OrbProps {
   isDragging: boolean;
   isPressed: boolean;
   isMonitoring: boolean;
+  emotion?: EmotionTone;
 }
 
 const Orb: React.FC<OrbProps> = ({
@@ -23,7 +24,8 @@ const Orb: React.FC<OrbProps> = ({
   onSettingsClick,
   isDragging,
   isPressed,
-  isMonitoring
+  isMonitoring,
+  emotion = 'NEUTRAL'
 }) => {
   const isSpeaking = status === OrbStatus.SPEAKING;
   const isTranslating = status === OrbStatus.TRANSLATING;
@@ -35,10 +37,37 @@ const Orb: React.FC<OrbProps> = ({
     if (isError) return 'from-rose-500 to-red-700 shadow-rose-600/60';
     if (isBuffering) return 'from-amber-400 to-orange-500 shadow-amber-500/50';
     if (isRecording) return 'from-emerald-500 to-teal-600 shadow-emerald-600/50';
+    
+    // Emotion-specific coloring when active
     if (isMonitoring || isSpeaking || isTranslating) {
-      return 'from-cyan-500 to-blue-600 shadow-cyan-600/50';
+      switch (emotion) {
+        case 'HAPPY': return 'from-yellow-400 to-orange-500 shadow-yellow-500/50';
+        case 'SAD': return 'from-blue-700 to-indigo-900 shadow-blue-800/50';
+        case 'ANGRY': return 'from-red-600 to-rose-900 shadow-red-700/50';
+        case 'URGENT': return 'from-red-500 to-orange-600 shadow-red-600/70';
+        case 'CALM': return 'from-teal-400 to-cyan-600 shadow-teal-500/50';
+        case 'INTENSE': return 'from-purple-600 to-fuchsia-900 shadow-purple-600/50';
+        case 'CURIOUS': return 'from-lime-400 to-yellow-500 shadow-lime-500/50';
+        default: return 'from-cyan-500 to-blue-600 shadow-cyan-600/50';
+      }
     }
     return 'from-sky-300 to-sky-500 shadow-sky-400/40';
+  };
+
+  const getEmotionAura = () => {
+    if (!isMonitoring) return null;
+    let colorClass = 'bg-cyan-400/20';
+    switch (emotion) {
+      case 'HAPPY': colorClass = 'bg-yellow-400/30'; break;
+      case 'SAD': colorClass = 'bg-blue-800/30'; break;
+      case 'ANGRY': colorClass = 'bg-red-600/30'; break;
+      case 'URGENT': colorClass = 'bg-rose-500/40 animate-pulse'; break;
+      case 'CALM': colorClass = 'bg-teal-400/20'; break;
+      case 'INTENSE': colorClass = 'bg-purple-600/30'; break;
+      case 'CURIOUS': colorClass = 'bg-lime-400/30'; break;
+    }
+    // Scaled aura spread for 150px ORB
+    return <div className={`absolute inset-[-25px] rounded-full blur-2xl transition-all duration-1000 ${colorClass}`} />;
   };
 
   return (
@@ -46,15 +75,18 @@ const Orb: React.FC<OrbProps> = ({
       className="relative flex items-center justify-center select-none group"
       style={{ width: ORB_SIZE, height: ORB_SIZE }}
     >
+      {/* Emotional Aura Layer */}
+      {getEmotionAura()}
+
       {/* Settings Gear Toggle */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onSettingsClick(e);
         }}
-        className="absolute -top-1 -right-1 z-50 p-1.5 rounded-full bg-slate-900 border border-white/20 text-cyan-400 shadow-lg hover:scale-110 active:scale-95 transition-all pointer-events-auto"
+        className="absolute top-2 right-2 z-50 p-2.5 rounded-full bg-slate-900 border border-white/20 text-cyan-400 shadow-lg hover:scale-110 active:scale-95 transition-all pointer-events-auto"
       >
-        <svg className="w-4 h-4 animate-[spin_4s_linear_infinite]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 animate-[spin_4s_linear_infinite]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
@@ -62,14 +94,14 @@ const Orb: React.FC<OrbProps> = ({
 
       {/* High-Contrast Dual Outer Ring */}
       <div className={`
-        absolute inset-[-3px] rounded-full border border-white/40 ring-4 ring-black/10
+        absolute inset-[-6px] rounded-full border-2 border-white/40 ring-8 ring-black/10
         transition-all duration-500
         ${isMonitoring ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}
       `} />
 
       {/* Buffering Indicator Outer Ring */}
       {isBuffering && (
-        <div className="absolute inset-[-8px] rounded-full border-4 border-amber-400/20 border-t-amber-400 animate-spin" />
+        <div className="absolute inset-[-15px] rounded-full border-4 border-amber-400/20 border-t-amber-400 animate-spin" />
       )}
 
       {/* Main ORB Body */}
@@ -78,15 +110,15 @@ const Orb: React.FC<OrbProps> = ({
         onTouchStart={onMouseDown}
         className={`
         relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br ${getStatusColor()}
-        flex flex-col items-center justify-center p-2 transition-all duration-300
-        border-2 border-black/5 backdrop-blur-xl cursor-move
-        shadow-[0_15px_45px_rgba(0,0,0,0.5)]
+        flex flex-col items-center justify-center p-4 transition-all duration-300
+        border-4 border-black/5 backdrop-blur-xl cursor-move
+        shadow-[0_25px_65px_rgba(0,0,0,0.6)]
         ${isTranslating || isBuffering || isRecording ? 'animate-pulse' : ''}
         ${isDragging 
-          ? 'scale-115 rotate-2 brightness-110 shadow-[0_40px_80px_rgba(0,0,0,0.8),0_0_20px_rgba(34,211,238,0.4)] ring-4 ring-white/50 z-[100]' 
+          ? 'scale-105 rotate-2 brightness-110 shadow-[0_60px_100px_rgba(0,0,0,0.9),0_0_30px_rgba(34,211,238,0.5)] ring-8 ring-white/50 z-[100]' 
           : isPressed 
             ? 'scale-95 shadow-inner' 
-            : 'hover:scale-110 hover:shadow-[0_20px_50px_rgba(0,0,0,0.7)]'
+            : 'hover:scale-105 hover:shadow-[0_30px_60px_rgba(0,0,0,0.8)]'
         }
       `}>
         {/* Visualizer internal layer */}
@@ -94,6 +126,7 @@ const Orb: React.FC<OrbProps> = ({
           analyser={analyser}
           isActive={isSpeaking || isRecording}
           size={ORB_SIZE}
+          emotion={emotion}
         />
 
         {/* Inner Buffering Glow */}
@@ -101,31 +134,31 @@ const Orb: React.FC<OrbProps> = ({
           <div className="absolute inset-0 bg-amber-400/20 animate-ping rounded-full" />
         )}
 
-        {/* State Icon */}
-        <div className="relative z-10 text-slate-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] mb-0.5">
+        {/* State Icon - Scaled for 150px */}
+        <div className="relative z-10 text-slate-950 drop-shadow-[0_2px_2px_rgba(255,255,255,0.5)] mb-2">
           {isBuffering ? (
-            <svg className="w-7 h-7 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-14 h-14 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           ) : mode === 'speaker' ? (
-            <svg className={`w-7 h-7 ${isRecording ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-14 h-14 ${isRecording ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 10v2a7 7 0 01-14 0v-2M12 19v4m-4 0h8" />
             </svg>
           ) : isMonitoring ? (
-            <svg className={`w-7 h-7 ${isSpeaking ? 'animate-none' : 'animate-pulse'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-14 h-14 ${isSpeaking ? 'animate-none' : 'animate-pulse'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v4m0 12v4M2 12h4m12 0h4" />
             </svg>
           ) : (
-            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           )}
         </div>
 
-        {/* Action Text */}
-        <div className="relative z-10 text-[9px] font-black uppercase tracking-tighter text-slate-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.3)] text-center leading-none">
+        {/* Action Text - Scaled for 150px */}
+        <div className="relative z-10 text-[14px] font-black uppercase tracking-[0.2em] text-slate-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] text-center leading-tight">
           {status !== OrbStatus.IDLE ? status : (isMonitoring ? 'ACTIVE' : 'READY')}
         </div>
 

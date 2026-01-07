@@ -1,3 +1,4 @@
+
 import { Language } from './types';
 
 // The existing constants are preserved
@@ -199,7 +200,7 @@ export const LANGUAGES: Language[] = [
   { code: 'bho', name: 'Bhojpuri' },
 ];
 
-export const ORB_SIZE = 80;
+export const ORB_SIZE = 150;
 export const POLLING_INTERVAL_MIN = 800;
 export const POLLING_INTERVAL_MAX = 2000;
 export const CHUNK_PUNCTUATION = /[.!?…]$/;

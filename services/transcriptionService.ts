@@ -26,9 +26,6 @@ export class TranscriptionService {
   private liveSessionPromise: Promise<any> | null = null;
   private inputAudioContext: AudioContext | null = null;
 
-  /**
-   * Automatically detects if a microphone is available without prompting for permissions immediately.
-   */
   async detectMicrophone(): Promise<boolean> {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
@@ -45,13 +42,12 @@ export class TranscriptionService {
     onError: (err: any) => void,
     deviceId?: string
   ) {
-    this.stop(); // Ensure clean slate
+    this.stop(); 
 
-    // Auto-check hardware if using mic
     if (source === 'mic') {
       const hasMic = await this.detectMicrophone();
       if (!hasMic) {
-        onError(new Error("No microphone hardware detected on this device."));
+        onError(new Error("No microphone hardware detected."));
         return;
       }
     }
@@ -72,8 +68,6 @@ export class TranscriptionService {
       this.socket = new WebSocket(url, ['token', DEEPGRAM_API_KEY]);
       
       this.socket.onopen = async () => {
-        console.log("[ORBIT MAIN]: Deepgram Uplink Active.");
-        
         try {
           let stream: MediaStream;
           
@@ -91,7 +85,7 @@ export class TranscriptionService {
               } 
             });
             if (!stream.getAudioTracks().length) {
-              throw new Error("System audio share not detected. Ensure 'Share Audio' is checked in the browser dialog.");
+              throw new Error("System audio share not detected.");
             }
           } else {
             this.startInternalStream(onTranscript, onError);
@@ -106,24 +100,9 @@ export class TranscriptionService {
           };
           this.mediaRecorder.start(250);
 
-          stream.getTracks().forEach(track => {
-            track.onended = () => {
-              console.log("[ORBIT]: Capture session ended by user or hardware.");
-              this.stop();
-            };
-          });
-
         } catch (err: any) {
-          let userFriendlyError = err;
-          if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-            userFriendlyError = new Error("Microphone not found. Please connect a recording device.");
-          } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            userFriendlyError = new Error("Hardware access denied. Please enable permissions in browser settings.");
-          } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-            userFriendlyError = new Error("Device is already in use by another application.");
-          }
           this.stop();
-          onError(userFriendlyError);
+          onError(err);
         }
       };
 
@@ -135,13 +114,7 @@ export class TranscriptionService {
         }
       };
 
-      this.socket.onerror = (err) => {
-        console.error("[ORBIT MAIN]: WebSocket Error:", err);
-        onError(new Error("Broadcaster connection failed."));
-      };
-
-      this.socket.onclose = () => console.log("[ORBIT MAIN]: Uplink Terminated.");
-
+      this.socket.onerror = () => onError(new Error("Deepgram socket error."));
     } catch (e) {
       this.stop();
       onError(e);
@@ -149,7 +122,6 @@ export class TranscriptionService {
   }
 
   private async startGeminiLive(source: InputSource, onTranscript: (text: string) => void, onError: (err: any) => void, deviceId?: string) {
-    console.log("[ORBIT BETA]: Connecting to Gemini Live Transcriber...");
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     try {
@@ -158,9 +130,6 @@ export class TranscriptionService {
       
       if (source === 'screen') {
         stream = await (navigator.mediaDevices as any).getDisplayMedia({ video: true, audio: true });
-        if (!stream.getAudioTracks().length) {
-          throw new Error("System audio share not detected.");
-        }
       } else {
         stream = await navigator.mediaDevices.getUserMedia({ 
           audio: deviceId && deviceId !== 'default' ? { deviceId: { exact: deviceId } } : true 
@@ -171,7 +140,6 @@ export class TranscriptionService {
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         callbacks: {
           onopen: () => {
-            console.log("[ORBIT BETA]: Gemini Live Link Established.");
             const sourceNode = this.inputAudioContext!.createMediaStreamSource(stream);
             const scriptProcessor = this.inputAudioContext!.createScriptProcessor(4096, 1, 1);
             
@@ -201,13 +169,8 @@ export class TranscriptionService {
               if (text) onTranscript(text);
             }
           },
-          onerror: (e: any) => {
-            console.error("[ORBIT BETA]: Gemini Live Error", e);
-            onError(new Error("Gemini Live Link failure."));
-          },
-          onclose: () => {
-            console.log("[ORBIT BETA]: Gemini Live Link Closed.");
-          }
+          onerror: (e: any) => onError(new Error("Gemini Live failure.")),
+          onclose: () => console.log("[ORBIT]: Link Closed.")
         },
         config: {
           responseModalities: [Modality.AUDIO],
@@ -217,11 +180,8 @@ export class TranscriptionService {
       });
 
     } catch (err: any) {
-      let msg = "Gemini Live initialization failed.";
-      if (err.name === 'NotFoundError') msg = "Microphone not found.";
-      if (err.name === 'NotAllowedError') msg = "Microphone access denied.";
       this.stop();
-      onError(new Error(msg));
+      onError(err);
     }
   }
 
@@ -243,25 +203,24 @@ export class TranscriptionService {
           this.socket.send(value);
           pump();
         } catch (e: any) {
-          if (e.name !== 'AbortError') console.error("[ORBIT]: Stream pump error", e);
+          if (e.name !== 'AbortError') console.error(e);
         }
       };
       pump();
     } catch (e: any) {
-      if (e.name !== 'AbortError') onError(new Error("Internal Matrix stream failed."));
+      if (e.name !== 'AbortError') onError(new Error("Internal stream failed."));
     }
   }
 
   private startWebSpeech(onTranscript: (text: string) => void, onError: (err: any) => void) {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      onError(new Error("WebSpeech engine unavailable."));
+      onError(new Error("WebSpeech unavailable."));
       return;
     }
     this.recognition = new SpeechRecognition();
     this.recognition.continuous = true;
     this.recognition.interimResults = false;
-    this.recognition.lang = 'en-US';
     this.recognition.onresult = (event: any) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
       onTranscript(transcript);

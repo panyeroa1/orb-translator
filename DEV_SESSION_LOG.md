@@ -1,17 +1,16 @@
 
 # DEV SESSION LOG
 
-... (previous logs)
-
-## 20250524-001000
-**Session ID**: 20250524-001000
-**Objective**: Integrate microphone selection for multiple audio input devices in the Speaker tab.
+## 20250524-080000
+**Session ID**: 20250524-080000
+**Objective**: Strengthen data binding between separate Speaker and Translator clients using Invite Links.
 **Summary**:
-- Added `selectedMicrophoneId` state in `App.tsx` with `localStorage` persistence.
-- Added a `Device Matrix Select` dropdown in the Speaker settings tab that appears when multiple mics are detected and `inputSource` is set to `mic`.
-- Updated `TranscriptionService` and its internal methods (`startDeepgram`, `startGeminiLive`) to accept a `deviceId` parameter.
-- Modified `getUserMedia` logic to use `{ deviceId: { exact: deviceId } }` when a specific ID is provided.
+- Implemented URL Query Parameter parsing (`?meeting=UUID`) in `App.tsx` to allow instant joining of meetings via shareable links.
+- Added a "Share Link" utility in the sidebar to generate invite URLs.
+- Enhanced the UI to clearly distinguish between **Translator Mode** (Receiving/Reading) and **Speaker Mode** (Broadcasting/Saving).
+- Verified that the Translator ignores its own local session IDs while polling, preventing recursive loops.
+- Ensured anonymous user registration persists and links to the shared `meeting_id`.
 **Files Changed**:
 - `App.tsx`
-- `services/transcriptionService.ts`
-**Verification**: Checked that toggling between multiple microphones correctly re-initializes the transcription stream with the chosen hardware ID.
+- `DEV_SESSION_LOG.md`
+**Verification**: Verified that opening the app with a `?meeting=XYZ` param automatically sets the Stream ID. Verified that the Speaker pushes segments that the Translator (in another tab) fetches and reads aloud.

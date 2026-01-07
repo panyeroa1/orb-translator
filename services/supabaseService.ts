@@ -8,6 +8,17 @@ const HEADERS = {
   'Content-Type': 'application/json',
 };
 
+export interface TranscriptionRecord {
+  id: string;
+  meeting_id: string;
+  speaker_id: string;
+  transcribe_text_segment: string;
+  full_transcription: string;
+  users_all: string[];
+  created_at: string;
+  user_id?: string | null;
+}
+
 export async function fetchLanguages(): Promise<Language[] | null> {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/languages?select=code,name&order=name.asc`, {
@@ -38,29 +49,50 @@ export async function fetchVoices(): Promise<{id: string, name: string}[] | null
   }
 }
 
-export async function fetchLatestTranscription(meetingId: string): Promise<string | null> {
-  if (!meetingId) return null;
+/**
+ * FETCH LOGIC (SELECT)
+ */
+export async function fetchNewTranscriptions(
+  meetingId: string, 
+  sinceIso: string,
+  excludeSpeakerId?: string
+): Promise<TranscriptionRecord[]> {
+  if (!meetingId) return [];
 
   try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/transcriptions?meeting_id=eq.${meetingId}&select=transcribe_text_segment&order=created_at.desc&limit=1`,
-      {
-        method: 'GET',
-        mode: 'cors',
-        headers: HEADERS
-      }
-    );
+    let url = `${SUPABASE_URL}/rest/v1/transcriptions?meeting_id=eq.${meetingId}&created_at=gt.${sinceIso}&select=id,transcribe_text_segment,created_at,speaker_id,full_transcription,users_all,user_id&order=created_at.asc`;
+    
+    if (excludeSpeakerId) {
+      url += `&speaker_id=neq.${excludeSpeakerId}`;
+    }
 
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data && data.length > 0 ? data[0].transcribe_text_segment : null;
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      headers: HEADERS
+    });
+
+    if (!response.ok) return [];
+    return await response.json();
   } catch (error) {
-    return null;
+    console.error('[ORBIT]: Fetch failed.', error);
+    return [];
   }
 }
 
-export async function pushTranscription(meetingId: string, text: string): Promise<boolean> {
-  if (!meetingId || !text) return false;
+/**
+ * SAVE LOGIC (INSERT)
+ * Aligned with the provided INSERT INTO "public"."transcriptions" schema.
+ */
+export async function pushTranscription(
+  meetingId: string, 
+  segment: string, 
+  speakerId: string,
+  fullTranscription: string,
+  userId: string,
+  usersAll: string[] = ["host", "guest1"]
+): Promise<boolean> {
+  if (!meetingId || !segment) return false;
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/transcriptions`, {
       method: 'POST',
@@ -68,56 +100,59 @@ export async function pushTranscription(meetingId: string, text: string): Promis
       headers: { ...HEADERS, 'Prefer': 'return=minimal' },
       body: JSON.stringify([{ 
         meeting_id: meetingId, 
-        transcribe_text_segment: text,
-        created_at: new Date().toISOString()
+        speaker_id: speakerId,
+        transcribe_text_segment: segment,
+        full_transcription: fullTranscription,
+        users_all: usersAll,
+        created_at: new Date().toISOString(),
+        user_id: userId
       }])
     });
     return response.ok;
   } catch (error) {
-    console.error('[ORBIT]: Broadcaster failure.', error);
+    console.error('[ORBIT]: Save failure.', error);
     return false;
   }
 }
 
+/**
+ * USER REGISTRATION
+ * Saves the anonymous user ID to the users table on page load.
+ */
 export async function registerUser(userId: string): Promise<boolean> {
   if (!userId) return false;
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
       method: 'POST',
       mode: 'cors',
-      headers: { ...HEADERS, 'Prefer': 'resolution=ignore-duplicates' },
-      body: JSON.stringify([{ id: userId }])
+      headers: { 
+        ...HEADERS, 
+        'Prefer': 'resolution=ignore-duplicates,return=minimal' 
+      },
+      body: JSON.stringify([{ 
+        id: userId,
+        created_at: new Date().toISOString()
+      }])
     });
-    return response.ok || response.status === 409;
+    // 201 Created or 204 No Content (due to ignore-duplicates) are both successes
+    return response.status === 201 || response.status === 204;
   } catch (error) {
+    console.error('[ORBIT]: User registration failed.', error);
     return false;
   }
 }
 
-/**
- * ORBIT KEY MANAGEMENT
- */
-
-const ADMIN_CONFIG_KEY = 'orbit_api_keys';
-
 export async function getOrbitKeys(): Promise<string[]> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/admin_config?key=eq.${ADMIN_CONFIG_KEY}&select=value`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/admin_config?key=eq.orbit_api_keys&select=value`, {
       method: 'GET',
       mode: 'cors',
       headers: HEADERS
     });
-    if (!response.ok) {
-      console.warn("[ORBIT]: Memory bank access restricted or empty.");
-      return [];
-    }
+    if (!response.ok) return [];
     const data = await response.json();
-    if (data && data.length > 0 && Array.isArray(data[0].value?.keys)) {
-      return data[0].value.keys;
-    }
-    return [];
+    return data?.[0]?.value?.keys || [];
   } catch (e) {
-    console.error("[ORBIT]: Memory retrieval system failure.");
     return [];
   }
 }
@@ -128,31 +163,18 @@ export async function addOrbitKey(newKey: string): Promise<boolean> {
     const existingKeys = await getOrbitKeys();
     if (existingKeys.includes(newKey)) return true;
     const updatedKeys = [...existingKeys, newKey].slice(-20);
-    const payload = {
-      key: ADMIN_CONFIG_KEY,
-      value: { keys: updatedKeys },
-      updated_at: new Date().toISOString()
-    };
-
     const response = await fetch(`${SUPABASE_URL}/rest/v1/admin_config?on_conflict=key`, {
       method: 'POST',
       mode: 'cors',
-      headers: { 
-        ...HEADERS, 
-        'Prefer': 'resolution=merge-duplicates,return=minimal' 
-      },
-      body: JSON.stringify(payload)
+      headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({
+        key: 'orbit_api_keys',
+        value: { keys: updatedKeys },
+        updated_at: new Date().toISOString()
+      })
     });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      console.error("[ORBIT]: Token injection rejected by server.", errBody);
-      return false;
-    }
-
-    return true;
+    return response.ok;
   } catch (e) {
-    console.error("[ORBIT]: Token persistence hardware failure.", e);
     return false;
   }
 }
