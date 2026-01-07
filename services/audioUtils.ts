@@ -1,35 +1,48 @@
 
-export function decodeBase64(base64: string): Uint8Array {
+/**
+ * Decodes a base64 string into a Uint8Array manually as per Gemini API guidelines.
+ */
+export function decode(base64: string): Uint8Array {
   const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
 }
 
+/**
+ * Encodes a Uint8Array into a base64 string manually.
+ */
+export function encode(bytes: Uint8Array): string {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Decodes raw PCM data into an AudioBuffer for playback.
+ * Gemini Live API returns raw PCM 16-bit mono at 24kHz.
+ */
 export async function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
   sampleRate: number = 24000,
   numChannels: number = 1
 ): Promise<AudioBuffer> {
-  // Ensure we handle the buffer correctly even if it's a view
-  const buffer = data.buffer;
-  const offset = data.byteOffset;
-  const length = data.byteLength;
-  
-  // Gemini API returns raw PCM 16-bit mono at 24kHz
-  // We use the offset and length to avoid alignment issues
-  const dataInt16 = new Int16Array(buffer, offset, length / 2);
+  const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
   const frameCount = dataInt16.length / numChannels;
-  const audioBuffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 
   for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = audioBuffer.getChannelData(channel);
+    const channelData = buffer.getChannelData(channel);
     for (let i = 0; i < frameCount; i++) {
       channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
     }
   }
-  return audioBuffer;
+  return buffer;
 }

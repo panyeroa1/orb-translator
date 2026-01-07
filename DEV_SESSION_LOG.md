@@ -2,15 +2,20 @@
 # DEV SESSION LOG
 
 ## 20250523-041500
-**Session ID**: 20250523-041500
-**Start Timestamp**: 2025-05-23 04:15:00
+... (previous entries preserved)
+
+## 20250523-053000
+**Session ID**: 20250523-053000
+**Start Timestamp**: 2025-05-23 05:30:00
 **Objective(s)**:
-- Implement manual "Instant Test" input in sidebar.
-- Implement "Save Configuration" button for explicit persistence.
-- Force user registration on first ORB tap before starting monitoring.
+- Migrated to Gemini Live API (`gemini-2.5-flash-native-audio-preview-12-2025`).
+- Removed text translation/TTS split in favor of single native audio model turns.
+- Implemented strict sequential reading queue (one segment at a time).
+- Enhanced system instruction with native dialect pronunciation references.
+- Disabled microphone usage (one-way systemic output).
 **Summary of changes**:
-- Enhanced `App.tsx` with a new test input UI section.
-- Added `saveSettings` function with a success feedback state.
-- Wrapped monitoring toggle in `ensureUserAccount` logic.
-**Files changed**: `App.tsx`, `DEV_SESSION_LOG.md`.
-**Results**: Sidebar now supports ad-hoc testing and explicit saving. ORB tap is more robust.
+- `services/audioUtils.ts`: Added raw PCM handling.
+- `services/geminiService.ts`: New `GeminiLiveService` using WebSocket-based turns.
+- `App.tsx`: Updated turn logic to wait for `onTurnComplete` and audio drain before next segment.
+**Files changed**: `services/audioUtils.ts`, `services/geminiService.ts`, `App.tsx`, `DEV_SESSION_LOG.md`.
+**Results**: Real-time native audio quality significantly improved. Sequential reading guaranteed.

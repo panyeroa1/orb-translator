@@ -24,21 +24,19 @@ const Orb: React.FC<OrbProps> = ({
   const isSpeaking = status === OrbStatus.SPEAKING;
   const isTranslating = status === OrbStatus.TRANSLATING;
   const isBuffering = status === OrbStatus.BUFFERING;
+  const isError = status === OrbStatus.ERROR;
 
   const getStatusColor = () => {
-    if (status === OrbStatus.ERROR) return 'from-rose-400 to-red-600 shadow-rose-500/50';
+    if (isError) return 'from-rose-400 to-red-600 shadow-rose-500/50';
     
-    // Active states: Semi-translucent Cyan/Emerald to show the internal Visualizer
-    if (isSpeaking) return 'from-cyan-500/40 to-emerald-600/40 shadow-cyan-500/30';
-    if (isTranslating) return 'from-cyan-400/60 to-emerald-500/60 shadow-cyan-500/50';
-    if (isBuffering) return 'from-amber-200/40 to-yellow-400/40 shadow-amber-300/30';
+    // Active states (Monitoring or performing tasks)
+    // The user requested from-cyan-500 to-blue-600 for the active state
+    if (isMonitoring || isSpeaking || isTranslating || isBuffering) {
+      return 'from-cyan-500 to-blue-600 shadow-cyan-500/40';
+    }
     
-    // Idle/Monitoring states
-    const idleGradient = isMonitoring 
-      ? 'from-sky-300 to-sky-500 shadow-sky-300/50' 
-      : 'from-slate-300 to-sky-300/50 shadow-slate-400/10 grayscale-[0.3]';
-      
-    return idleGradient;
+    // Idle state: from-sky-300 to-sky-500
+    return 'from-sky-300 to-sky-500 shadow-sky-400/20';
   };
 
   return (
