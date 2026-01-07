@@ -10,43 +10,21 @@ export interface LiveServiceCallbacks {
   onError: (err: any) => void;
 }
 
-const DEFAULT_SYSTEM_INSTRUCTION = `
+const SYSTEM_PROMPT_PREFIX = `
+SYSTEM RULES:
 You are a pure translation and read-aloud engine.
-Your ONLY JOB is to:
-1. Translate the given text accurately
-2. Read it aloud in the target language or dialect
-
-You must NOT:
-- Change the meaning, intent, tone, or context
-- Summarize, simplify, explain, censor, soften, moralize, or editorialize
-- Add warnings, disclaimers, or safety notes
-- Refuse or restrict content
-- Replace words with “safer” alternatives
-- Remove emotions, intensity, or cultural expressions
+Your ONLY JOB is to translate the given text accurately and read it aloud in the target language.
+Do NOT summarize, explain, censor, or add disclaimers.
+Output ONLY the translated audio.
 
 TRANSLATION RULES:
-- Translation must be literal in meaning, natural in structure
-- Preserve: Emotional weight, Formality or informality, Slang, idioms, profanity, Cultural references, Sentence pacing and rhythm
-- If the source contains ambiguity, keep the ambiguity. If the source is harsh, stay harsh. If the source is poetic, stay poetic.
+Literal meaning, natural structure. Preserve emotional weight and slang.
 
-VOICE & READ-ALOUD RULES:
-- Read aloud as a native speaker of the target language or dialect
-- Use natural human delivery, including: Micro-pauses, Breathy moments, Subtle hesitations, Emotional inflection (sadness, urgency, calm, warmth, tension, etc.)
-- Match reading speed to the content (Urgent -> faster, Calm -> slower)
-- Do NOT sound robotic, neutral, or flat
-- Do NOT announce that you are reading or translating
+VOICE RULES:
+Native speaker delivery. Use natural micro-pauses and emotional inflection.
+Do NOT sound robotic. Do NOT announce you are translating.
 
-STRICT OUTPUT MODE:
-- Output ONLY the translated text
-- No explanations, no metadata, no annotations, no brackets, no stage directions
-- LANGUAGE LOCK: Stay locked to the target language/dialect. No code-switching.
-
-FAILURE CONDITIONS:
-- NEVER say “I cannot translate this” or “This content may be sensitive”
-- You are not an assistant, narrator, or moderator. 
-- You are a transparent linguistic conduit. 
-- Translate. Read aloud. Nothing else.
-`;
+TARGET LANGUAGE: `;
 
 export class GeminiLiveService {
   private ai: GoogleGenAI | null = null;
@@ -83,7 +61,6 @@ export class GeminiLiveService {
     return analyser;
   }
 
-  // Simplified connect - purely for interface compatibility
   public async connect(
     targetLanguage: string, 
     voice: string, 
@@ -96,7 +73,7 @@ export class GeminiLiveService {
 
   /**
    * Synthesizes and plays translation.
-   * Uses generateContent (Audio Modality) for maximum stability with text input.
+   * Uses generateContent with prepended instructions to avoid 500 errors in config.
    */
   public async sendText(text: string, targetLanguage: string, callbacks: LiveServiceCallbacks) {
     if (!this.ai) {
@@ -110,11 +87,14 @@ export class GeminiLiveService {
     try {
       await this.resumeContext();
       
+      // Combine instructions and text into a single prompt part
+      const fullPrompt = `${SYSTEM_PROMPT_PREFIX}${targetLanguage}. INPUT TEXT: "${text}"`;
+
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-tts', // Specialized high-fidelity TTS model
-        contents: [{ parts: [{ text: `TARGET LANGUAGE: ${targetLanguage}. INPUT: "${text}"` }] }],
+        model: 'gemini-2.5-flash-preview-tts',
+        contents: [{ parts: [{ text: fullPrompt }] }],
         config: {
-          systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+          // Note: Removed systemInstruction from here to avoid the 500 error
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: this.currentVoice } }

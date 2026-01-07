@@ -16,6 +16,21 @@ import {
   addOrbitKey
 } from './services/supabaseService';
 
+const DEFAULT_TEST_TEXT = `Welcome to Orbit, the real-time translation and voice experience developed under the Success Class by Eburon initiative.
+This platform is designed to remove language barriers without changing meaning, emotion, or intent.
+
+Every word you hear must remain faithful to the original message.
+No simplification. No censorship. No loss of tone.
+
+Orbit is used in live classrooms, professional training, and real-world communication where accuracy matters.
+When a teacher speaks, the students listen in their own language — clearly, naturally, and instantly.
+
+Success Class by Eburon exists to empower people through understanding, not shortcuts.
+Knowledge should travel freely, across borders, accents, and cultures.
+
+This is not just translation.
+This is voice, context, and human nuance — delivered in real time.`;
+
 const App: React.FC = () => {
   const [status, setStatus] = useState<OrbStatus>(OrbStatus.IDLE);
   const [isMonitoring, setIsMonitoring] = useState(false);
@@ -31,10 +46,10 @@ const App: React.FC = () => {
   
   const [availableLanguages, setAvailableLanguages] = useState<Language[]>(FALLBACK_LANGUAGES);
   const [availableVoices, setAvailableVoices] = useState<{id: string, name: string}[]>(FALLBACK_VOICES);
-  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('orb_lang') || 'en');
-  const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('orb_voice') || 'Kore');
-  const [meetingId, setMeetingId] = useState(() => localStorage.getItem('orb_meeting_id') || '');
-  const [testText, setTestText] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('orb_lang') || 'en-tl');
+  const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('orb_voice') || 'Zephyr');
+  const [meetingId, setMeetingId] = useState(() => localStorage.getItem('orb_meeting_id') || '43f847a2-6836-4d5f-b16e-bf67f12972e5');
+  const [testText, setTestText] = useState(DEFAULT_TEST_TEXT);
   
   const textQueueRef = useRef<string[]>([]);
   const isBusyRef = useRef<boolean>(false);
@@ -246,7 +261,7 @@ const App: React.FC = () => {
                     value={testText} 
                     onChange={e => setTestText(e.target.value)} 
                     placeholder="Enter text to translate..." 
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs min-h-[80px] focus:border-purple-500/50 outline-none transition-all" 
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs min-h-[120px] focus:border-purple-500/50 outline-none transition-all" 
                   />
                   <button 
                     onClick={handleTestSpeech} 

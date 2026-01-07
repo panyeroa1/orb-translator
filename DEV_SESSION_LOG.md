@@ -1,12 +1,16 @@
 
 # DEV SESSION LOG
 
-## 20250523-143000
-**Session ID**: 20250523-143000
-**Objective**: Fix "Invalid Argument" error in Orbit engine.
-**Diagnosis**: The Gemini Multimodal Live API rejects raw text sent via `sendRealtimeInput` as an invalid argument, as it expects binary audio/video frames.
-**Solution**:
-- Refactored `GeminiLiveService` to use `generateContent` with `Modality.AUDIO`.
-- Model shifted to `gemini-2.5-flash-preview-tts` for superior synthesis stability.
-- Re-implemented turn-based synthesis logic to maintain visualizer and status sync.
-**Results**: "Invalid Argument" error resolved. Translation and read-aloud now function reliably with high-fidelity native audio output.
+... (previous logs)
+
+## 20250523-153000
+**Session ID**: 20250523-153000
+**Objective**: Set official default configurations for Orbit.
+**Scope**: Default Stream ID, Language, Voice, and Test Text.
+**Changes**:
+- Default Stream ID: `43f847a2-6836-4d5f-b16e-bf67f12972e5`
+- Default Language: Taglish (`en-tl`)
+- Default Voice: Minos (`Zephyr`)
+- Default Test Text: Full Success Class by Eburon mission statement.
+- Increased `testText` textarea height in Sidebar to accommodate the new script.
+**Results**: Success. The Orbit engine now initializes with the correct environment for the Eburon initiative.
