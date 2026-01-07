@@ -1,9 +1,51 @@
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../constants';
+import { Language } from '../types';
+
+const HEADERS = {
+  'apikey': SUPABASE_ANON_KEY,
+  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+  'Content-Type': 'application/json',
+};
+
+/**
+ * Fetches the list of supported languages/dialects from the 'languages' table.
+ */
+export async function fetchLanguages(): Promise<Language[] | null> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/languages?select=code,name&order=name.asc`, {
+      method: 'GET',
+      mode: 'cors',
+      headers: HEADERS
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('Supabase fetch languages failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetches the list of available Gemini voices from the 'voices' table.
+ */
+export async function fetchVoices(): Promise<{id: string, name: string}[] | null> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/voices?select=id,name&order=name.asc`, {
+      method: 'GET',
+      mode: 'cors',
+      headers: HEADERS
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('Supabase fetch voices failed:', error);
+    return null;
+  }
+}
 
 /**
  * Fetches the latest transcription segment for a specific meeting.
- * Updated to use the 'transcriptions' table as per user schema.
  */
 export async function fetchLatestTranscription(meetingId: string): Promise<string | null> {
   if (!meetingId) return null;
@@ -14,11 +56,7 @@ export async function fetchLatestTranscription(meetingId: string): Promise<strin
       {
         method: 'GET',
         mode: 'cors',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        }
+        headers: HEADERS
       }
     );
 
@@ -38,7 +76,6 @@ export async function fetchLatestTranscription(meetingId: string): Promise<strin
 
 /**
  * Registers an anonymous user in the 'users' table.
- * Uses upsert logic via 'resolution=ignore-duplicates' to prevent 409 conflicts.
  */
 export async function registerUser(userId: string): Promise<boolean> {
   if (!userId) return false;
@@ -48,9 +85,7 @@ export async function registerUser(userId: string): Promise<boolean> {
       method: 'POST',
       mode: 'cors',
       headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
+        ...HEADERS,
         'Prefer': 'resolution=ignore-duplicates'
       },
       body: JSON.stringify([{ id: userId }])
@@ -58,28 +93,17 @@ export async function registerUser(userId: string): Promise<boolean> {
 
     if (!response.ok) {
       const errText = await response.text();
-      
-      // Handle RLS Violation (42501)
       if (errText.includes('42501') || response.status === 401) {
-        console.warn('SUPABASE RLS ERROR (42501): Permission denied on "users" table.');
-        console.warn('ACTION REQUIRED: Run the following SQL in your Supabase Dashboard to enable anonymous registration:');
-        console.warn('CREATE POLICY "Allow anon insert" ON public.users FOR INSERT WITH CHECK (true);');
-        
-        // We return true here because the ID is already in local storage; 
-        // failing the server-side log shouldn't break the user experience.
+        console.warn('SUPABASE RLS ERROR (42501): Check public.users insert policy.');
         return true; 
       }
-
-      // 409 Conflict might still happen if 'Prefer' is ignored, which is a success for us.
       if (response.status === 409) return true;
-      
-      console.error('Supabase register user status error:', response.status, errText);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Register user fetch failed (Network/CORS):', error);
+    console.error('Register user fetch failed:', error);
     return false;
   }
 }

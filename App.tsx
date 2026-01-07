@@ -1,18 +1,17 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { OrbStatus, HistoryEntry } from './types';
+import { OrbStatus, HistoryEntry, Language } from './types';
 import {
   POLLING_INTERVAL_MIN,
   POLLING_INTERVAL_MAX,
-  LANGUAGES,
-  GREEK_VOICES
+  LANGUAGES as FALLBACK_LANGUAGES,
+  GREEK_VOICES as FALLBACK_VOICES
 } from './constants';
 import { useDraggable } from './hooks/useDraggable';
 import Orb from './components/Orb';
 import { GeminiLiveService } from './services/geminiService';
-import { fetchLatestTranscription, registerUser } from './services/supabaseService';
+import { fetchLatestTranscription, registerUser, fetchLanguages, fetchVoices } from './services/supabaseService';
 
-// Detect current origin dynamically
 const GET_APP_DOMAIN = () => typeof window !== 'undefined' ? window.location.origin : "https://translate.eburon.ai";
 
 const App: React.FC = () => {
@@ -23,6 +22,11 @@ const App: React.FC = () => {
   const [saveFeedback, setSaveFeedback] = useState(false);
   const [regFeedback, setRegFeedback] = useState(false);
   
+  // Dynamic Asset State
+  const [availableLanguages, setAvailableLanguages] = useState<Language[]>(FALLBACK_LANGUAGES);
+  const [availableVoices, setAvailableVoices] = useState<{id: string, name: string}[]>(FALLBACK_VOICES);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+
   // Settings State
   const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('orb_lang') || 'en');
   const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('orb_voice') || 'Kore');
@@ -50,6 +54,14 @@ const App: React.FC = () => {
   const currentTranslationRef = useRef<string>('');
   const currentOriginalRef = useRef<string>('');
 
+  const loadDynamicAssets = useCallback(async () => {
+    setIsLoadingAssets(true);
+    const [langs, voices] = await Promise.all([fetchLanguages(), fetchVoices()]);
+    if (langs && langs.length > 0) setAvailableLanguages(langs);
+    if (voices && voices.length > 0) setAvailableVoices(voices);
+    setIsLoadingAssets(false);
+  }, []);
+
   const ensureUserAccount = useCallback(async (force: boolean = false) => {
     let currentId = localStorage.getItem('orb_user_id') || userId;
     if (!currentId || force) {
@@ -69,10 +81,10 @@ const App: React.FC = () => {
     return currentId;
   }, [userId]);
 
-  // Initialize User on Mount
   useEffect(() => {
     ensureUserAccount();
-  }, []);
+    loadDynamicAssets();
+  }, [ensureUserAccount, loadDynamicAssets]);
 
   const processNextInQueue = useCallback(async () => {
     if (isBusyRef.current || textQueueRef.current.length === 0 || !liveServiceRef.current) return;
@@ -84,9 +96,9 @@ const App: React.FC = () => {
     currentTranslationRef.current = '';
 
     setStatus(OrbStatus.TRANSLATING);
-    const langName = LANGUAGES.find(l => l.code === selectedLanguage)?.name || 'English';
+    const langName = availableLanguages.find(l => l.code === selectedLanguage)?.name || 'English';
     liveServiceRef.current.sendText(text, langName);
-  }, [selectedLanguage]);
+  }, [selectedLanguage, availableLanguages]);
 
   useEffect(() => {
     const apiKey = (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY || '';
@@ -301,7 +313,10 @@ const App: React.FC = () => {
 
               {/* Manual Injector */}
               <div className="bg-gradient-to-br from-cyan-500/20 to-blue-600/20 p-6 rounded-[2rem] border border-cyan-500/40 shadow-inner">
-                <label className="block text-[11px] font-black text-cyan-300 uppercase tracking-[0.25em] mb-4">Neural Override</label>
+                <div className="flex justify-between items-center mb-4">
+                  <label className="block text-[11px] font-black text-cyan-300 uppercase tracking-[0.25em]">Neural Override</label>
+                  {isLoadingAssets && <span className="text-[9px] text-cyan-400/60 animate-pulse font-mono">Syncing Assets...</span>}
+                </div>
                 <div className="flex gap-3">
                   <input 
                     type="text" 
@@ -332,24 +347,33 @@ const App: React.FC = () => {
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Linguistics</label>
                     <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all appearance-none shadow-inner cursor-pointer">
-                      {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-slate-900">{l.name}</option>)}
+                      {availableLanguages.map(l => <option key={l.code} value={l.code} className="bg-slate-900">{l.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Synthesizer</label>
                     <select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all appearance-none shadow-inner cursor-pointer">
-                      {GREEK_VOICES.map(v => <option key={v.id} value={v.id} className="bg-slate-900">{v.name}</option>)}
+                      {availableVoices.map(v => <option key={v.id} value={v.id} className="bg-slate-900">{v.name}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
 
-              <button 
-                onClick={saveSettings} 
-                className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.4em] transition-all shadow-2xl active:scale-95 border ${saveFeedback ? 'bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/30' : 'bg-cyan-600/10 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 shadow-cyan-500/20'}`}
-              >
-                {saveFeedback ? 'Sequence Saved' : 'Synchronize Matrix'}
-              </button>
+              <div className="flex gap-4">
+                 <button 
+                  onClick={saveSettings} 
+                  className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.4em] transition-all shadow-2xl active:scale-95 border ${saveFeedback ? 'bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/30' : 'bg-cyan-600/10 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 shadow-cyan-500/20'}`}
+                >
+                  {saveFeedback ? 'Sequence Saved' : 'Synchronize Matrix'}
+                </button>
+                <button 
+                  onClick={loadDynamicAssets}
+                  className="p-5 rounded-2xl bg-white/5 border border-white/20 text-cyan-400 hover:bg-white/10 transition-all active:rotate-180 duration-500"
+                  title="Refresh Assets"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+              </div>
 
               {/* Deployment Info */}
               <div className="pt-10 border-t border-white/10">

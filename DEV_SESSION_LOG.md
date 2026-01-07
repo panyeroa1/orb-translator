@@ -31,3 +31,11 @@
 **Changes**:
 - `services/geminiService.ts`: Expanded `DEFAULT_SYSTEM_INSTRUCTION` with the requested strict translation rules and a detailed Phonetic & Dialectal Execution Matrix.
 **Results**: The Gemini Live Audio engine now has explicit instructions to handle glottal stops, tonal contours, and regional cadences (Medumba, Flemish, Nouchi, etc.).
+
+## 20250523-103000
+**Session ID**: 20250523-103000
+**Objective**: Transition from hardcoded language/voice lists to dynamic Supabase fetching.
+**Changes**:
+- `services/supabaseService.ts`: Added `fetchLanguages` and `fetchVoices` methods.
+- `App.tsx`: Added `availableLanguages` and `availableVoices` states. Implemented background fetching on mount and manual refresh capability in UI.
+**Results**: The application can now adapt to new language support and voice options added to the database without requiring code changes.
