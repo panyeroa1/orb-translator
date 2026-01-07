@@ -3,16 +3,15 @@
 
 ... (previous logs)
 
-## 20250523-220000
-**Session ID**: 20250523-220000
-**Objective**: Integrate emotion-based inflection and dynamic subtitle progress "filling".
+## 20250523-230000
+**Session ID**: 20250523-230000
+**Objective**: Make the app embeddable with specialized layout for iframe usage.
 **Summary**: 
-- Updated `GeminiLiveService` system prompt to mandate emotional analysis of input text and adjust multi-modal synthesis (pitch/cadence).
-- Modified `LiveServiceCallbacks` to report the exact duration of the audio buffer back to the UI.
-- Implemented `subtitleProgress` state in `App.tsx` and an animation loop synced to audio duration.
-- Redesigned the Subtitle Overlay: It now uses a "pill" style with a neon progress bar at the bottom that fills as the audio plays.
+- Added `isEmbedded` detection logic using `window.self !== window.top`.
+- Implemented automatic bottom-right initial positioning for the ORB when running in an iframe.
+- Updated the floating subtitle logic to "lift" by an additional 120px when in embedded mode to avoid collisions with standard bottom-bar UIs.
+- Added a new "Embed" tab in the "Matrix Prime" settings sidebar with a copyable iframe code snippet.
+- Refined sidebar tabs to include the new Embed section.
 **Changes**:
-- **types.ts**: Added `EmotionTone` and updated callbacks.
-- **geminiService.ts**: New prompt instructions for emotive delivery; duration reporting in `sendText`.
-- **App.tsx**: Added `animateSubtitleProgress` logic and updated the horizontal subtitle component with CSS-driven progress filling.
-**Results**: The voice now sounds much more human-like with context-aware emotion, and the UI provides a clear, satisfying visual representation of the audio's length.
+- **App.tsx**: New `isEmbedded` hook, updated `initialX`/`initialY` for `useDraggable`, added `Embed` tab UI, and modified subtitle `bottom` style.
+**Results**: The ORB can now be seamlessly integrated into other platforms as a widget, maintaining visibility and functional ergonomics regardless of the host environment's layout.

@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { OrbStatus, HistoryEntry, Language, AppMode, TranscriptionEngine, InputSource } from './types';
 import {
   POLLING_INTERVAL_MIN,
   POLLING_INTERVAL_MAX,
   LANGUAGES as FALLBACK_LANGUAGES,
-  GREEK_VOICES as FALLBACK_VOICES
+  GREEK_VOICES as FALLBACK_VOICES,
+  ORB_SIZE
 } from './constants';
 import { useDraggable } from './hooks/useDraggable';
 import Orb from './components/Orb';
@@ -30,10 +31,19 @@ This is not just translation.
 This is voice, context, and human nuance — delivered in real time.`;
 
 const App: React.FC = () => {
+  // Detect if app is running in an iframe
+  const isEmbedded = useMemo(() => {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }, []);
+
   const [status, setStatus] = useState<OrbStatus>(OrbStatus.IDLE);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<AppMode>('translate');
+  const [settingsTab, setSettingsTab] = useState<AppMode | 'embed'>('translate');
   const [saveFeedback, setSaveFeedback] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentTranscriptionText, setCurrentTranscriptionText] = useState<string>("");
@@ -76,7 +86,10 @@ const App: React.FC = () => {
   const errorTimeoutRef = useRef<number | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
   
-  const { position, isDragging, handleMouseDown: dragMouseDown } = useDraggable(100, 200);
+  // Initial position logic: if embedded, start bottom-right
+  const initialX = isEmbedded ? window.innerWidth - ORB_SIZE - 40 : 100;
+  const initialY = isEmbedded ? window.innerHeight - ORB_SIZE - 40 : 200;
+  const { position, isDragging, handleMouseDown: dragMouseDown } = useDraggable(initialX, initialY);
 
   const triggerError = useCallback((msg: string) => {
     setErrorMessage(msg);
@@ -333,11 +346,16 @@ const App: React.FC = () => {
     localStorage.removeItem('orb_full_transcript');
   };
 
+  const embedCode = `<iframe src="${window.location.href}" width="100%" height="100%" frameborder="0" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:999999; pointer-events:none; border:none;" allow="microphone"></iframe>`;
+
   return (
     <div className="fixed inset-0 pointer-events-none text-white font-sans bg-transparent">
-      {/* Subtitle Display - Augmented with Progress Bar and Visibility Logic */}
+      {/* Subtitle Display - Augmented with Lifting logic for embedded mode */}
       {isMonitoring && showSubtitles && isSubtitleVisible && currentTranscriptionText && (
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-fit max-w-[80vw] z-[40] animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div 
+          className="absolute left-1/2 -translate-x-1/2 w-fit max-w-[80vw] z-[40] animate-in fade-in slide-in-from-bottom-2 duration-300"
+          style={{ bottom: isEmbedded ? 'calc(120px + 3rem)' : '3rem' }}
+        >
           <div className="relative bg-black/80 backdrop-blur-2xl border border-white/20 rounded-[2rem] py-4 px-10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden">
             <div className="flex items-center gap-4">
                {/* Neural Status Indicator */}
@@ -377,31 +395,34 @@ const App: React.FC = () => {
                 </button>
               </div>
               
-              <div className="flex px-8 pb-4 gap-4">
-                <button onClick={() => setSettingsTab('translate')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${settingsTab === 'translate' ? 'bg-cyan-500 text-black border-cyan-400' : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}>Translator</button>
-                <button onClick={() => setSettingsTab('speaker')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${settingsTab === 'speaker' ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}>Speaker</button>
+              <div className="flex px-8 pb-4 gap-2">
+                <button onClick={() => setSettingsTab('translate')} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${settingsTab === 'translate' ? 'bg-cyan-500 text-black border-cyan-400' : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}>Translator</button>
+                <button onClick={() => setSettingsTab('speaker')} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${settingsTab === 'speaker' ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}>Speaker</button>
+                <button onClick={() => setSettingsTab('embed')} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${settingsTab === 'embed' ? 'bg-purple-500 text-black border-purple-400' : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}>Embed</button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-8 p-8 custom-scrollbar">
-              <div className="bg-white/5 border border-white/10 p-5 rounded-3xl flex justify-between items-center group">
-                <div>
-                  <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-1">Visual Subtitles</h4>
-                  <p className="text-[8px] text-white/40 uppercase font-bold">Overlay transcription on main view</p>
+              {settingsTab !== 'embed' && (
+                <div className="bg-white/5 border border-white/10 p-5 rounded-3xl flex justify-between items-center group">
+                  <div>
+                    <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-1">Visual Subtitles</h4>
+                    <p className="text-[8px] text-white/40 uppercase font-bold">Overlay transcription on main view</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const next = !showSubtitles;
+                      setShowSubtitles(next);
+                      localStorage.setItem('orb_show_subtitles', String(next));
+                    }}
+                    className={`w-12 h-6 rounded-full p-1 transition-all ${showSubtitles ? 'bg-cyan-500' : 'bg-white/10'}`}
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-white transition-all transform ${showSubtitles ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
                 </div>
-                <button 
-                  onClick={() => {
-                    const next = !showSubtitles;
-                    setShowSubtitles(next);
-                    localStorage.setItem('orb_show_subtitles', String(next));
-                  }}
-                  className={`w-12 h-6 rounded-full p-1 transition-all ${showSubtitles ? 'bg-cyan-500' : 'bg-white/10'}`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all transform ${showSubtitles ? 'translate-x-6' : 'translate-x-0'}`} />
-                </button>
-              </div>
+              )}
 
-              {settingsTab === 'translate' ? (
+              {settingsTab === 'translate' && (
                 <>
                   <div className="bg-slate-900/60 p-6 rounded-[2rem] border border-cyan-500/20">
                     <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-[0.25em] mb-4">Add Orbit Token</label>
@@ -439,7 +460,9 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </>
-              ) : (
+              )}
+
+              {settingsTab === 'speaker' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
                   <div className="bg-emerald-900/20 p-6 rounded-[2rem] border border-emerald-500/30">
                     <div className="flex justify-between items-center mb-6">
@@ -506,28 +529,62 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <button 
-                onClick={() => {
-                  localStorage.setItem('orb_lang', selectedLanguage);
-                  localStorage.setItem('orb_voice', selectedVoice);
-                  localStorage.setItem('orb_meeting_id', meetingId);
-                  localStorage.setItem('orb_engine', transcriptionEngine);
-                  localStorage.setItem('orb_input', inputSource);
-                  setSaveFeedback(true);
-                  pushTranscription(meetingId, fullTranscription);
-                  setTimeout(() => setSaveFeedback(false), 2000);
-                }} 
-                className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.4em] transition-all border ${saveFeedback ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-cyan-600/10 border-cyan-500/40 text-cyan-400'}`}
-              >
-                {saveFeedback ? 'Matrix Synced' : 'Sync Neural Core'}
-              </button>
+              {settingsTab === 'embed' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  <div className="bg-purple-900/20 p-6 rounded-[2rem] border border-purple-500/30">
+                    <label className="block text-[10px] font-black text-purple-400 uppercase tracking-[0.25em] mb-4">Embed Matrix Link</label>
+                    <p className="text-[8px] text-white/60 uppercase font-bold mb-4 leading-relaxed">Inject this node into any web ecosystem. The ORB will automatically position itself in the bottom-right sector.</p>
+                    
+                    <textarea 
+                      readOnly 
+                      value={embedCode} 
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[9px] font-mono text-purple-200 min-h-[100px] mb-4 outline-none resize-none"
+                    />
+                    
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(embedCode);
+                        setSaveFeedback(true);
+                        setTimeout(() => setSaveFeedback(false), 2000);
+                      }}
+                      className="w-full bg-purple-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-purple-500 transition-all"
+                    >
+                      {saveFeedback ? 'Code Captured' : 'Copy Embed Node'}
+                    </button>
+                  </div>
+                  
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 italic">
+                    <p className="text-[7px] text-white/40 uppercase tracking-[0.1em] leading-loose">
+                      Note: Subtitles in embedded mode are automatically lifted by 120px to prevent interface collision with bottom-bar ecosystems. Ensure the host allows 'microphone' permissions for voice features.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {settingsTab !== 'embed' && (
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('orb_lang', selectedLanguage);
+                    localStorage.setItem('orb_voice', selectedVoice);
+                    localStorage.setItem('orb_meeting_id', meetingId);
+                    localStorage.setItem('orb_engine', transcriptionEngine);
+                    localStorage.setItem('orb_input', inputSource);
+                    setSaveFeedback(true);
+                    pushTranscription(meetingId, fullTranscription);
+                    setTimeout(() => setSaveFeedback(false), 2000);
+                  }} 
+                  className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.4em] transition-all border ${saveFeedback ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-cyan-600/10 border-cyan-500/40 text-cyan-400'}`}
+                >
+                  {saveFeedback ? 'Matrix Synced' : 'Sync Neural Core'}
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
       <div className="pointer-events-auto absolute" style={{ left: position.x, top: position.y }}>
-        <Orb status={status} mode={settingsTab} analyser={analyserRef.current} onMouseDown={handleOrbMouseDown} onSettingsClick={() => setIsSidebarOpen(true)} isDragging={isDragging} isPressed={false} isMonitoring={isMonitoring} />
+        <Orb status={status} mode={settingsTab === 'embed' ? 'translate' : settingsTab} analyser={analyserRef.current} onMouseDown={handleOrbMouseDown} onSettingsClick={() => setIsSidebarOpen(true)} isDragging={isDragging} isPressed={false} isMonitoring={isMonitoring} />
       </div>
 
       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/70 backdrop-blur-md pointer-events-auto z-[55]" />}
