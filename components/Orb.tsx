@@ -28,9 +28,11 @@ const Orb: React.FC<OrbProps> = ({
   const getStatusColor = () => {
     if (isError) return 'from-rose-500 to-red-700 shadow-rose-600/60';
     if (isMonitoring || isSpeaking || isTranslating || isBuffering) {
-      return 'from-cyan-400 to-blue-700 shadow-cyan-500/50';
+      // Active State: High contrast cyan-to-blue
+      return 'from-cyan-500 to-blue-600 shadow-cyan-600/50';
     }
-    return 'from-slate-100 to-slate-400 shadow-white/20';
+    // Idle State: Lighter blue requested
+    return 'from-sky-300 to-sky-500 shadow-sky-400/40';
   };
 
   return (
@@ -42,7 +44,7 @@ const Orb: React.FC<OrbProps> = ({
     >
       {/* High-Contrast Dual Outer Ring (Visible on dark and light bgs) */}
       <div className={`
-        absolute inset-[-2px] rounded-full border border-white/40 ring-4 ring-black/20
+        absolute inset-[-3px] rounded-full border border-white/40 ring-4 ring-black/10
         transition-all duration-500
         ${isMonitoring ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}
       `} />
@@ -59,8 +61,8 @@ const Orb: React.FC<OrbProps> = ({
       <div className={`
         relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br ${getStatusColor()}
         flex flex-col items-center justify-center p-2 transition-all duration-300
-        border-2 border-white/30 backdrop-blur-xl cursor-move
-        shadow-[0_10px_40px_rgba(0,0,0,0.6)]
+        border-2 border-black/5 backdrop-blur-xl cursor-move
+        shadow-[0_15px_45px_rgba(0,0,0,0.5)]
         ${isTranslating ? 'animate-pulse' : ''}
         ${isDragging 
           ? 'scale-115 rotate-2 brightness-110 shadow-[0_40px_80px_rgba(0,0,0,0.8),0_0_20px_rgba(34,211,238,0.4)] ring-4 ring-white/50 z-[100]' 
@@ -76,8 +78,8 @@ const Orb: React.FC<OrbProps> = ({
           size={ORB_SIZE}
         />
 
-        {/* State Icon */}
-        <div className="relative z-10 text-slate-900 drop-shadow-[0_1px_2px_rgba(255,255,255,0.4)] mb-0.5">
+        {/* State Icon - Dark for contrast */}
+        <div className="relative z-10 text-slate-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] mb-0.5">
           {isMonitoring ? (
             <svg className={`w-7 h-7 ${isSpeaking ? 'animate-none' : 'animate-pulse'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -90,13 +92,13 @@ const Orb: React.FC<OrbProps> = ({
           )}
         </div>
 
-        {/* Action Text */}
-        <div className="relative z-10 text-[9px] font-black uppercase tracking-tighter text-slate-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.3)] text-center leading-none">
+        {/* Action Text - Ultra dark for contrast */}
+        <div className="relative z-10 text-[9px] font-black uppercase tracking-tighter text-slate-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.3)] text-center leading-none">
           {status !== OrbStatus.IDLE ? status : (isMonitoring ? 'ACTIVE' : 'READY')}
         </div>
 
-        {/* Glass reflection shine - intensified */}
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-transparent via-white/20 to-transparent pointer-events-none z-20" />
+        {/* Glass reflection shine */}
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-transparent via-white/30 to-transparent pointer-events-none z-20" />
       </div>
     </div>
   );

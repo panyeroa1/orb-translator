@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { OrbStatus, HistoryEntry } from './types';
 import {
@@ -26,7 +27,6 @@ const App: React.FC = () => {
   const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('orb_lang') || 'en');
   const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('orb_voice') || 'Kore');
   const [meetingId, setMeetingId] = useState(() => localStorage.getItem('orb_meeting_id') || '');
-  const [systemPrompt, setSystemPrompt] = useState(() => localStorage.getItem('orb_prompt') || 'Professional high-fidelity translator.');
   const [userId, setUserId] = useState(() => localStorage.getItem('orb_user_id') || '');
   const [testText, setTestText] = useState('');
   const [history, setHistory] = useState<HistoryEntry[]>(() => {
@@ -98,8 +98,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isMonitoring && liveServiceRef.current) {
-      const langName = LANGUAGES.find(l => l.code === selectedLanguage)?.name || 'English';
-      liveServiceRef.current.connect(langName, selectedVoice, systemPrompt, {
+      liveServiceRef.current.connect(selectedLanguage, selectedVoice, {
         onTranscription: (text) => {
           currentTranslationRef.current += text;
         },
@@ -145,7 +144,7 @@ const App: React.FC = () => {
       isBusyRef.current = false;
       textQueueRef.current = [];
     }
-  }, [isMonitoring, selectedLanguage, selectedVoice, systemPrompt, processNextInQueue]);
+  }, [isMonitoring, selectedLanguage, selectedVoice, processNextInQueue]);
 
   useEffect(() => {
     let tid: any;
@@ -217,7 +216,6 @@ const App: React.FC = () => {
     localStorage.setItem('orb_lang', selectedLanguage);
     localStorage.setItem('orb_voice', selectedVoice);
     localStorage.setItem('orb_meeting_id', meetingId);
-    localStorage.setItem('orb_prompt', systemPrompt);
     setSaveFeedback(true);
     setTimeout(() => setSaveFeedback(false), 2000);
   };
@@ -343,11 +341,6 @@ const App: React.FC = () => {
                       {GREEK_VOICES.map(v => <option key={v.id} value={v.id} className="bg-slate-900">{v.name}</option>)}
                     </select>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Neural Heuristics</label>
-                  <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="w-full h-28 bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all resize-none shadow-inner leading-relaxed" />
                 </div>
               </div>
 
