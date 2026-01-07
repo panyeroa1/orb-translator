@@ -43,31 +43,21 @@
 - Prepare the application for Vercel deployment.
 - Implement standard Node/Vite build pipeline.
 
-## 20250522-210000
-**Start Timestamp**: 2025-05-22 21:00:00
-**Objective(s)**:
-- Resolve "user_id column does not exist" error.
-- Remove importmap from index.html.
+## 20250522-221000
+- Resolve "user_id column does not exist" SQL error.
+- Add subtle pulse animation to Orb during translation.
 
-**End Timestamp**: 2025-05-22 21:05:00
+## 20250522-230000
+**Start Timestamp**: 2025-05-22 23:00:00
+**Objective(s)**:
+- Generate definitive SQL script to fix missing `user_id` column.
+- Ensure foreign key relationship between `transcriptions` and `users`.
+- Setup anonymous RLS policies.
+
+**End Timestamp**: 2025-05-22 23:05:00
 **Summary of changes**:
-- Created `schema.sql` with defensive migration logic to add `user_id` and create the `users` table.
-- Simplified `index.html` for clean Vite compilation.
+- Created `schema.sql` with `CREATE TABLE` and `ALTER TABLE` logic.
+- Added indexes for `meeting_id` and `created_at` for high-performance polling.
 **Files changed**:
 - `schema.sql`
-- `index.html`
-**Results**: The database is now aligned with the app's expectations.
-
-## 20250522-213000
-**Start Timestamp**: 2025-05-22 21:30:00
-**Objective(s)**:
-- Fix 42703 column "user_id" does not exist error.
-- Provide definitive SQL schema for users and transcriptions.
-
-**End Timestamp**: 2025-05-22 21:32:00
-**Summary of changes**:
-- Generated `schema.sql` containing the full table definitions, RLS policies, and indexes.
-- Ensured `user_id` column is added to `transcriptions` table with foreign key relationship.
-**Files changed**:
-- `schema.sql`
-**Results**: SQL Script ready for execution in Supabase SQL Editor.
+**Results**: SQL migration script ready for execution in Supabase.

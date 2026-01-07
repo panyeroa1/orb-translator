@@ -22,13 +22,14 @@ const Orb: React.FC<OrbProps> = ({
   isMonitoring
 }) => {
   const isSpeaking = status === OrbStatus.SPEAKING;
+  const isTranslating = status === OrbStatus.TRANSLATING;
 
   const getStatusColor = () => {
     if (status === OrbStatus.ERROR) return 'from-rose-400 to-red-600 shadow-rose-500/50';
     
     // Active states: Semi-translucent Cyan/Emerald to show the internal Visualizer
     if (isSpeaking) return 'from-cyan-500/40 to-emerald-600/40 shadow-cyan-500/30';
-    if (status === OrbStatus.TRANSLATING) return 'from-cyan-400/60 to-emerald-500/60 shadow-cyan-500/50 animate-pulse';
+    if (isTranslating) return 'from-cyan-400/60 to-emerald-500/60 shadow-cyan-500/50';
     
     // Idle/Monitoring states
     const idleGradient = isMonitoring 
@@ -49,6 +50,7 @@ const Orb: React.FC<OrbProps> = ({
         relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br ${getStatusColor()}
         flex flex-col items-center justify-center p-2 transition-all duration-300
         border border-white/20 backdrop-blur-md cursor-move
+        ${isTranslating ? 'animate-pulse' : ''}
         ${isDragging 
           ? 'scale-115 rotate-2 brightness-110 shadow-[0_30px_70px_-10px_rgba(0,0,0,0.7)] ring-4 ring-white/40 z-[100]' 
           : isPressed 
