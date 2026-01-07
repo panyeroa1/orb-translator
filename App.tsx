@@ -12,6 +12,8 @@ import Orb from './components/Orb';
 import { GeminiLiveService } from './services/geminiService';
 import { fetchLatestTranscription, registerUser } from './services/supabaseService';
 
+const APP_DOMAIN = "https://translate.eburon.ai";
+
 const App: React.FC = () => {
   const [status, setStatus] = useState<OrbStatus>(OrbStatus.IDLE);
   const [isPressed, setIsPressed] = useState(false);
@@ -44,7 +46,6 @@ const App: React.FC = () => {
 
   const { position, isDragging, handleMouseDown: dragMouseDown } = useDraggable(100, 200);
 
-  // Translation Captured state (accumulates during a turn)
   const currentTranslationRef = useRef<string>('');
   const currentOriginalRef = useRef<string>('');
 
@@ -211,11 +212,19 @@ const App: React.FC = () => {
     setTimeout(() => setSaveFeedback(false), 2000);
   };
 
-  const embedCode = `<iframe src="${window.location.origin}" width="400" height="600" frameborder="0" style="background:transparent; pointer-events:none;" allow="microphone"></iframe>`;
+  // Proper Iframe Embed Code for widget-like behavior
+  const embedCode = `<iframe 
+  src="${APP_DOMAIN}" 
+  width="100%" 
+  height="100%" 
+  frameborder="0" 
+  style="position:fixed; top:0; left:0; width:100vw; height:100vh; border:none; z-index:999999; pointer-events:none; background:transparent;" 
+  allow="autoplay"
+></iframe>`;
 
   const copyEmbedCode = () => {
     navigator.clipboard.writeText(embedCode);
-    alert('Embed code copied to clipboard!');
+    alert('ORB Widget code copied! Paste this inside the <body> of your page.');
   };
 
   return (
@@ -239,16 +248,19 @@ const App: React.FC = () => {
           <div 
             className="resizable-modal bg-slate-900/98 backdrop-blur-3xl border border-white/10 transform transition-all pointer-events-auto shadow-[-20px_0_50px_rgba(0,0,0,0.5)] flex flex-col rounded-3xl overflow-hidden"
             style={{ 
-              width: '380px', 
+              width: '400px', 
               height: '80vh', 
-              minWidth: '300px', 
-              minHeight: '400px', 
+              minWidth: '320px', 
+              minHeight: '450px', 
               resize: 'both' 
             }}
           >
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 shrink-0 border-b border-white/10 bg-black/20">
-              <h2 className="text-xl font-black text-cyan-400 tracking-tighter uppercase italic">Control Matrix</h2>
+              <div className="flex flex-col">
+                <h2 className="text-xl font-black text-cyan-400 tracking-tighter uppercase italic leading-none">Control Matrix</h2>
+                <span className="text-[9px] text-cyan-400/50 mt-1 font-mono tracking-widest uppercase">translate.eburon.ai</span>
+              </div>
               <button 
                 onClick={() => setIsSidebarOpen(false)} 
                 className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all"
@@ -296,19 +308,20 @@ const App: React.FC = () => {
                 {saveFeedback ? 'Matrix Synced' : 'Commit Configuration'}
               </button>
 
+              {/* Enhanced Embed Code Section */}
               <div className="pt-8 border-t border-white/10">
-                <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-3">Embed Code</label>
+                <div className="flex justify-between items-center mb-3">
+                  <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em]">Deployment Code</label>
+                  <button onClick={copyEmbedCode} className="text-[9px] text-cyan-400 hover:text-white font-black uppercase tracking-widest bg-cyan-500/10 px-2 py-1 rounded transition-colors">Copy Widget</button>
+                </div>
                 <div className="relative group">
-                  <div className="text-[10px] font-mono text-white/40 bg-black/40 p-3 rounded-xl border border-white/5 break-all max-h-24 overflow-y-auto">
+                  <div className="text-[9px] font-mono text-white/40 bg-black/40 p-3 rounded-xl border border-white/5 break-all max-h-32 overflow-y-auto leading-relaxed">
                     {embedCode}
                   </div>
-                  <button 
-                    onClick={copyEmbedCode}
-                    className="absolute top-2 right-2 p-1.5 bg-cyan-500 rounded-lg text-slate-900 hover:scale-110 transition-transform opacity-0 group-hover:opacity-100"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
-                  </button>
                 </div>
+                <p className="mt-2 text-[8px] text-white/30 uppercase tracking-[0.1em] text-center italic">
+                  * Iframe is fixed full-screen with pointer transparency.
+                </p>
               </div>
 
               <div className="pt-8 border-t border-white/10">
@@ -352,7 +365,7 @@ const App: React.FC = () => {
       {isSidebarOpen && (
         <div 
           onClick={() => setIsSidebarOpen(false)} 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto z-[55] transition-opacity duration-500" 
+          className="fixed inset-0 bg-black/60 backdrop-blur-md pointer-events-auto z-[55] transition-opacity duration-500" 
         />
       )}
     </div>
