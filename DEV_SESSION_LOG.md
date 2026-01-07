@@ -43,17 +43,31 @@
 - Prepare the application for Vercel deployment.
 - Implement standard Node/Vite build pipeline.
 
-## 20250522-202500
-**Start Timestamp**: 2025-05-22 20:25:00
+## 20250522-210000
+**Start Timestamp**: 2025-05-22 21:00:00
 **Objective(s)**:
-- Resolve `user_id` column error in existing Supabase tables.
-- Remove redundant importmap from `index.html`.
+- Resolve "user_id column does not exist" error.
+- Remove importmap from index.html.
 
-**End Timestamp**: 2025-05-22 20:30:00
+**End Timestamp**: 2025-05-22 21:05:00
 **Summary of changes**:
-- Created `schema.sql` with a defensive migration script that adds `user_id` to `transcriptions` only if it's missing.
-- Cleaned up `index.html` by removing the `importmap`, making the project fully compatible with the local Vite bundler.
+- Created `schema.sql` with defensive migration logic to add `user_id` and create the `users` table.
+- Simplified `index.html` for clean Vite compilation.
 **Files changed**:
 - `schema.sql`
 - `index.html`
-**Results**: SQL error is resolved by using a proper migration approach. Build process is now standard.
+**Results**: The database is now aligned with the app's expectations.
+
+## 20250522-213000
+**Start Timestamp**: 2025-05-22 21:30:00
+**Objective(s)**:
+- Fix 42703 column "user_id" does not exist error.
+- Provide definitive SQL schema for users and transcriptions.
+
+**End Timestamp**: 2025-05-22 21:32:00
+**Summary of changes**:
+- Generated `schema.sql` containing the full table definitions, RLS policies, and indexes.
+- Ensured `user_id` column is added to `transcriptions` table with foreign key relationship.
+**Files changed**:
+- `schema.sql`
+**Results**: SQL Script ready for execution in Supabase SQL Editor.

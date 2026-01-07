@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { OrbStatus } from '../types';
 import { ORB_SIZE } from '../constants';
@@ -20,19 +21,19 @@ const Orb: React.FC<OrbProps> = ({
   isPressed,
   isMonitoring
 }) => {
+  const isSpeaking = status === OrbStatus.SPEAKING;
+
   const getStatusColor = () => {
     if (status === OrbStatus.ERROR) return 'from-rose-400 to-red-600 shadow-rose-500/50';
     
-    // Active states: Blue Green
-    const activeGradient = 'from-cyan-400 to-emerald-500 shadow-cyan-500/50';
+    // Active states: Semi-translucent Cyan/Emerald to show the internal Visualizer
+    if (isSpeaking) return 'from-cyan-500/40 to-emerald-600/40 shadow-cyan-500/30';
+    if (status === OrbStatus.TRANSLATING) return 'from-cyan-400/60 to-emerald-500/60 shadow-cyan-500/50 animate-pulse';
     
-    if (status === OrbStatus.SPEAKING) return activeGradient;
-    if (status === OrbStatus.TRANSLATING) return `${activeGradient} animate-pulse`;
-    
-    // Idle/Monitoring states: Sky Cloudy Blue
+    // Idle/Monitoring states
     const idleGradient = isMonitoring 
-      ? 'from-sky-200 to-sky-400 shadow-sky-300/50' 
-      : 'from-slate-200 to-sky-200/50 shadow-slate-400/10 grayscale-[0.3]';
+      ? 'from-sky-300 to-sky-500 shadow-sky-300/50' 
+      : 'from-slate-300 to-sky-300/50 shadow-slate-400/10 grayscale-[0.3]';
       
     return idleGradient;
   };
@@ -44,16 +45,10 @@ const Orb: React.FC<OrbProps> = ({
       onMouseDown={onMouseDown}
       onTouchStart={onMouseDown}
     >
-      <Visualizer
-        analyser={analyser}
-        isActive={status === OrbStatus.SPEAKING}
-        size={ORB_SIZE}
-      />
-
       <div className={`
-        relative w-full h-full rounded-full bg-gradient-to-br ${getStatusColor()}
+        relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br ${getStatusColor()}
         flex flex-col items-center justify-center p-2 transition-all duration-300
-        border border-black/10 backdrop-blur-sm cursor-move
+        border border-white/20 backdrop-blur-md cursor-move
         ${isDragging 
           ? 'scale-115 rotate-2 brightness-110 shadow-[0_30px_70px_-10px_rgba(0,0,0,0.7)] ring-4 ring-white/40 z-[100]' 
           : isPressed 
@@ -61,10 +56,17 @@ const Orb: React.FC<OrbProps> = ({
             : 'hover:scale-105 shadow-2xl'
         }
       `}>
-        {/* State Icon */}
-        <div className="text-slate-950 mb-0.5">
+        {/* Visualizer is now INSIDE the ORB and layered behind content */}
+        <Visualizer
+          analyser={analyser}
+          isActive={isSpeaking}
+          size={ORB_SIZE}
+        />
+
+        {/* State Icon (Layered above Visualizer) */}
+        <div className="relative z-10 text-slate-900 drop-shadow-sm mb-0.5">
           {isMonitoring ? (
-            <svg className="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-6 h-6 ${isSpeaking ? 'animate-none' : 'animate-pulse'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v4m0 12v4M2 12h4m12 0h4" />
             </svg>
@@ -75,18 +77,13 @@ const Orb: React.FC<OrbProps> = ({
           )}
         </div>
 
-        {/* Action Text */}
-        <div className="text-[10px] font-black uppercase tracking-tighter text-slate-950 drop-shadow-sm text-center leading-none">
+        {/* Action Text (Layered above Visualizer) */}
+        <div className="relative z-10 text-[10px] font-black uppercase tracking-tighter text-slate-900 drop-shadow-sm text-center leading-none">
           {status !== OrbStatus.IDLE ? status : (isMonitoring ? 'ON' : 'OFF')}
         </div>
 
-        {/* Shine effect */}
-        <div className="absolute top-1/4 left-1/4 w-1/2 h-1/4 bg-white/40 blur-md rounded-full pointer-events-none" />
-        
-        {/* Active Dragging Glow Overlay */}
-        {isDragging && (
-          <div className="absolute inset-0 rounded-full bg-white/10 animate-pulse pointer-events-none" />
-        )}
+        {/* Glass reflection shine */}
+        <div className="absolute top-1/4 left-1/4 w-1/2 h-1/4 bg-white/30 blur-md rounded-full pointer-events-none z-20" />
       </div>
     </div>
   );
