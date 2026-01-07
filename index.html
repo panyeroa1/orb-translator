@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,11 +20,30 @@
       height: 100%;
       background: transparent !important;
     }
-    /* Native resizable handle style */
+    /* Enhanced visibility for native resizable handle */
+    .resizable-modal {
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    }
     .resizable-modal::-webkit-resizer {
-      background-color: transparent;
-      border-right: 2px solid rgba(34, 211, 238, 0.5);
-      border-bottom: 2px solid rgba(34, 211, 238, 0.5);
+      background-image: linear-gradient(135deg, transparent 50%, rgba(34, 211, 238, 0.8) 50%);
+      background-size: 15px 15px;
+      background-repeat: no-repeat;
+      background-position: bottom right;
+    }
+    
+    /* Custom scrollbar for visibility on any bg */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(34, 211, 238, 0.3);
+      border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(34, 211, 238, 0.5);
     }
   </style>
 <script type="importmap">
@@ -43,7 +61,6 @@
 </head>
 <body>
   <div id="root"></div>
-  <!-- Vite handles the transformation of this .tsx file -->
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>

@@ -19,3 +19,11 @@
 - `App.tsx`: Updated turn logic to wait for `onTurnComplete` and audio drain before next segment.
 **Files changed**: `services/audioUtils.ts`, `services/geminiService.ts`, `App.tsx`, `DEV_SESSION_LOG.md`.
 **Results**: Real-time native audio quality significantly improved. Sequential reading guaranteed.
+
+## 20250523-061500
+**Session ID**: 20250523-061500
+**Objective**: Enable dynamic environment detection for iframe embed code.
+**Changes**:
+- `App.tsx`: Replaced hardcoded `APP_DOMAIN` with `window.location.origin`.
+- Updated Modal subtitle to show the current active domain dynamically.
+**Verification**: Checked settings modal; embed code now updates based on the current browser URL.

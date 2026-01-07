@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { OrbStatus, HistoryEntry } from './types';
 import {
@@ -12,7 +11,8 @@ import Orb from './components/Orb';
 import { GeminiLiveService } from './services/geminiService';
 import { fetchLatestTranscription, registerUser } from './services/supabaseService';
 
-const APP_DOMAIN = "https://translate.eburon.ai";
+// Detect current origin dynamically
+const GET_APP_DOMAIN = () => typeof window !== 'undefined' ? window.location.origin : "https://translate.eburon.ai";
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<OrbStatus>(OrbStatus.IDLE);
@@ -212,9 +212,9 @@ const App: React.FC = () => {
     setTimeout(() => setSaveFeedback(false), 2000);
   };
 
-  // Proper Iframe Embed Code for widget-like behavior
+  const appDomain = GET_APP_DOMAIN();
   const embedCode = `<iframe 
-  src="${APP_DOMAIN}" 
+  src="${appDomain}" 
   width="100%" 
   height="100%" 
   frameborder="0" 
@@ -224,18 +224,18 @@ const App: React.FC = () => {
 
   const copyEmbedCode = () => {
     navigator.clipboard.writeText(embedCode);
-    alert('ORB Widget code copied! Paste this inside the <body> of your page.');
+    alert('ORB Widget code copied!');
   };
 
   return (
     <div className="fixed inset-0 pointer-events-none text-white font-sans bg-transparent">
-      {/* Settings Toggle */}
+      {/* Settings Toggle - Persistent Shadow */}
       <div className="absolute top-0 right-0 p-6 pointer-events-auto z-50">
         <button 
           onClick={() => setIsSidebarOpen(true)} 
-          className="p-2 rounded-full bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 transition-all backdrop-blur-md shadow-xl"
+          className="p-3 rounded-2xl bg-slate-950/90 hover:bg-slate-900 border border-white/20 transition-all backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] group ring-1 ring-white/10"
         >
-          <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-cyan-400 group-hover:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
@@ -246,97 +246,116 @@ const App: React.FC = () => {
       {isSidebarOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-[60] p-4 pointer-events-none">
           <div 
-            className="resizable-modal bg-slate-900/98 backdrop-blur-3xl border border-white/10 transform transition-all pointer-events-auto shadow-[-20px_0_50px_rgba(0,0,0,0.5)] flex flex-col rounded-3xl overflow-hidden"
+            className="resizable-modal bg-slate-950/98 backdrop-blur-[60px] border-2 border-white/20 transform transition-all pointer-events-auto shadow-[0_40px_100px_rgba(0,0,0,0.9)] flex flex-col rounded-[2.5rem] overflow-hidden"
             style={{ 
-              width: '400px', 
+              width: '420px', 
               height: '80vh', 
               minWidth: '320px', 
-              minHeight: '450px', 
+              minHeight: '500px', 
               resize: 'both' 
             }}
           >
             {/* Modal Header */}
-            <div className="flex justify-between items-center p-6 shrink-0 border-b border-white/10 bg-black/20">
+            <div className="flex justify-between items-center p-8 shrink-0 border-b border-white/10 bg-black/40">
               <div className="flex flex-col">
-                <h2 className="text-xl font-black text-cyan-400 tracking-tighter uppercase italic leading-none">Control Matrix</h2>
-                <span className="text-[9px] text-cyan-400/50 mt-1 font-mono tracking-widest uppercase">translate.eburon.ai</span>
+                <h2 className="text-2xl font-black text-cyan-400 tracking-tighter uppercase italic leading-none drop-shadow-sm">Matrix Prime</h2>
+                <span className="text-[10px] text-cyan-400/60 mt-2 font-mono tracking-[0.3em] uppercase">{appDomain.replace(/^https?:\/\//, '')}</span>
               </div>
               <button 
                 onClick={() => setIsSidebarOpen(false)} 
-                className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                className="p-3 rounded-2xl bg-white/5 text-white/40 hover:text-white hover:bg-rose-500/20 transition-all border border-white/5"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto space-y-7 p-6 custom-scrollbar">
-              <div className="bg-gradient-to-br from-cyan-500/10 to-blue-600/10 p-5 rounded-2xl border border-cyan-500/30 shadow-inner">
-                <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-3">Live Feed Injector</label>
-                <div className="flex gap-2">
+            <div className="flex-1 overflow-y-auto space-y-8 p-8 custom-scrollbar">
+              {/* Manual Injector */}
+              <div className="bg-gradient-to-br from-cyan-500/20 to-blue-600/20 p-6 rounded-[2rem] border border-cyan-500/40 shadow-inner">
+                <label className="block text-[11px] font-black text-cyan-300 uppercase tracking-[0.25em] mb-4">Neural Override</label>
+                <div className="flex gap-3">
                   <input 
                     type="text" 
                     value={testText} 
                     onChange={(e) => setTestText(e.target.value)} 
                     onKeyDown={(e) => { if(e.key === 'Enter' && testText) { textQueueRef.current.push(testText); processNextInQueue(); setTestText(''); } }} 
-                    className="flex-1 bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-cyan-50 placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all" 
-                    placeholder="Manual override text..." 
+                    className="flex-1 bg-black/70 border border-white/20 rounded-2xl px-5 py-4 text-sm text-cyan-50 placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-cyan-500/60 transition-all shadow-xl" 
+                    placeholder="Enter manual sequence..." 
                   />
                   <button 
                     onClick={() => { if(testText) { textQueueRef.current.push(testText); processNextInQueue(); setTestText(''); } }} 
-                    className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 p-3 rounded-xl transition-all active:scale-90 shadow-lg shadow-cyan-500/20"
+                    className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 p-4 rounded-2xl transition-all active:scale-90 shadow-[0_0_20px_rgba(34,211,238,0.4)]"
                   >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Identity Signature</label><div className="text-[10px] font-mono text-cyan-200/50 break-all bg-white/5 p-3 rounded-xl border border-white/5 shadow-inner">{userId || 'Awaiting activation...'}</div></div>
-                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Meeting Target ID</label><input type="text" value={meetingId} onChange={(e) => setMeetingId(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all" placeholder="e.g. ALPHA-9" /></div>
-                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Target Language</label><select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all appearance-none">{LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-slate-900">{l.name}</option>)}</select></div>
-                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Vocal Matrix</label><select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all appearance-none">{GREEK_VOICES.map(v => <option key={v.id} value={v.id} className="bg-slate-900">{v.name}</option>)}</select></div>
-                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Core Heuristics</label><textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="w-full h-24 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all resize-none scrollbar-hide" /></div>
+              {/* Settings Grid */}
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Target Endpoint</label>
+                  <input type="text" value={meetingId} onChange={(e) => setMeetingId(e.target.value)} className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all font-mono shadow-inner" placeholder="ID-SEQUENCE" />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Linguistics</label>
+                    <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all appearance-none shadow-inner cursor-pointer">
+                      {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-slate-900">{l.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Synthesizer</label>
+                    <select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all appearance-none shadow-inner cursor-pointer">
+                      {GREEK_VOICES.map(v => <option key={v.id} value={v.id} className="bg-slate-900">{v.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Neural Heuristics</label>
+                  <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="w-full h-28 bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all resize-none shadow-inner leading-relaxed" />
+                </div>
               </div>
 
               <button 
                 onClick={saveSettings} 
-                className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all shadow-lg active:scale-95 ${saveFeedback ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/30 shadow-cyan-500/10'}`}
+                className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.4em] transition-all shadow-2xl active:scale-95 border ${saveFeedback ? 'bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/30' : 'bg-cyan-600/10 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 shadow-cyan-500/20'}`}
               >
-                {saveFeedback ? 'Matrix Synced' : 'Commit Configuration'}
+                {saveFeedback ? 'Sequence Saved' : 'Synchronize Matrix'}
               </button>
 
-              {/* Enhanced Embed Code Section */}
-              <div className="pt-8 border-t border-white/10">
-                <div className="flex justify-between items-center mb-3">
-                  <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em]">Deployment Code</label>
-                  <button onClick={copyEmbedCode} className="text-[9px] text-cyan-400 hover:text-white font-black uppercase tracking-widest bg-cyan-500/10 px-2 py-1 rounded transition-colors">Copy Widget</button>
+              {/* Deployment Info */}
+              <div className="pt-10 border-t border-white/10">
+                <div className="flex justify-between items-center mb-4">
+                  <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-[0.25em]">Widget Embed</label>
+                  <button onClick={copyEmbedCode} className="text-[10px] text-cyan-400 hover:text-white font-black uppercase tracking-widest bg-cyan-500/20 px-4 py-2 rounded-xl border border-cyan-500/40 transition-all active:scale-90">Copy Code</button>
                 </div>
-                <div className="relative group">
-                  <div className="text-[9px] font-mono text-white/40 bg-black/40 p-3 rounded-xl border border-white/5 break-all max-h-32 overflow-y-auto leading-relaxed">
+                <div className="bg-black/60 p-5 rounded-[1.5rem] border border-white/10 shadow-inner">
+                  <div className="text-[10px] font-mono text-white/40 break-all max-h-24 overflow-y-auto leading-relaxed">
                     {embedCode}
                   </div>
                 </div>
-                <p className="mt-2 text-[8px] text-white/30 uppercase tracking-[0.1em] text-center italic">
-                  * Iframe is fixed full-screen with pointer transparency.
-                </p>
               </div>
 
-              <div className="pt-8 border-t border-white/10">
-                <div className="flex justify-between items-center mb-5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-60">Log History</label>
-                  <button onClick={() => { setHistory([]); localStorage.removeItem('orb_history'); }} className="text-[10px] text-rose-400/60 hover:text-rose-400 font-black uppercase tracking-tighter transition-colors">Wipe Memory</button>
+              {/* Logs */}
+              <div className="pt-10 border-t border-white/10">
+                <div className="flex justify-between items-center mb-6">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] opacity-70">Memory Bank</label>
+                  <button onClick={() => { setHistory([]); localStorage.removeItem('orb_history'); }} className="text-[10px] text-rose-500/60 hover:text-rose-500 font-black uppercase tracking-tighter transition-colors">Purge History</button>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {history.length > 0 ? history.map((entry) => (
-                    <div key={entry.id} className="group bg-white/5 rounded-2xl p-4 border border-white/5 hover:border-cyan-500/40 transition-all hover:translate-x-1">
-                      <div className="text-[10px] text-white/40 mb-2 leading-tight font-medium italic">"{entry.originalText}"</div>
-                      <div className="text-xs text-cyan-300 font-bold leading-relaxed">{entry.translatedText}</div>
+                    <div key={entry.id} className="group bg-white/5 rounded-[1.5rem] p-5 border border-white/5 hover:border-cyan-500/30 transition-all hover:bg-white/[0.07] shadow-lg">
+                      <div className="text-[11px] text-white/30 mb-3 leading-snug italic font-medium">"{entry.originalText}"</div>
+                      <div className="text-sm text-cyan-200 font-bold leading-relaxed">{entry.translatedText}</div>
                     </div>
                   )) : (
-                    <div className="text-center py-10 text-[10px] text-white/20 uppercase tracking-widest font-black italic">No records found</div>
+                    <div className="text-center py-12 text-[10px] text-white/20 uppercase tracking-[0.3em] font-black italic">No records active</div>
                   )}
                 </div>
               </div>
@@ -351,12 +370,12 @@ const App: React.FC = () => {
         style={{ 
           left: position.x, 
           top: position.y, 
-          transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' 
+          transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' 
         }}
       >
         <Orb status={status} analyser={analyserRef.current} onMouseDown={handleOrbMouseDown} isDragging={isDragging} isPressed={isPressed} isMonitoring={isMonitoring} />
         {meetingId && (
-          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/40 rounded-full border border-white/5 text-[9px] font-black text-cyan-400/80 whitespace-nowrap uppercase tracking-[0.2em] backdrop-blur-md">
+          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-black/80 rounded-full border border-white/20 text-[10px] font-black text-cyan-400 whitespace-nowrap uppercase tracking-[0.3em] backdrop-blur-xl shadow-2xl ring-1 ring-white/10">
             {meetingId}
           </div>
         )}
@@ -365,7 +384,7 @@ const App: React.FC = () => {
       {isSidebarOpen && (
         <div 
           onClick={() => setIsSidebarOpen(false)} 
-          className="fixed inset-0 bg-black/60 backdrop-blur-md pointer-events-auto z-[55] transition-opacity duration-500" 
+          className="fixed inset-0 bg-black/70 backdrop-blur-md pointer-events-auto z-[55] transition-opacity duration-700" 
         />
       )}
     </div>

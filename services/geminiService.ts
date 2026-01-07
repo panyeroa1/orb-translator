@@ -42,18 +42,28 @@ export class GeminiLiveService {
 
     const fullInstruction = `
 ${systemPrompt}
-You are a high-fidelity, native-level translation and speech system.
-Your goal is to translate the input text and read it aloud with perfect native pronunciation, including regional dialects and accents.
-Output ONLY the audio. Do not add conversational fillers, greetings, or explanations.
-Act as a purely systemic translator.
+ROLE: You are the EBURON high-fidelity, native-level linguistic engine.
+MISSION: Translate input text into the target language and generate audio with 100% native prosody, accent, and regional phonetics.
 
-Reference Pronunciation Guide:
-- African Dialects (e.g., Medumba, Baoulé, Dioula): Use authentic local intonation, tonal shifts, and phonetic rhythms. Avoid westernized stress.
-- Philippine Dialects (e.g., Tagalog, Cebuano, Bisaya, Taglish): Maintain native stress patterns, glottal stops, and melodic lilts.
-- European Languages (e.g., Flemish, Swiss French): Use specific regional vowel lengths and consonants (e.g., soft 'g' for Flemish).
-- Standard Languages: Use high-clarity, professional native accents.
+DIALECT & PRONUNCIATION MATRIX:
+- TONAL LANGUAGES (e.g., Mandarin, Vietnamese, Medumba, Yoruba): You MUST preserve exact tonal contours. For Medumba/Bamiléké, use the characteristic high/low tonal shifts and glottal stops native to the Grassfields region.
+- REGIONAL EUROPEAN VARIATIONS:
+  * Flemish (Belgium): Use soft 'g' (uvular fricative) and specific long vowel durations distinct from Netherlands Dutch.
+  * Belgian/Swiss French: Use regional vocabulary (e.g., septante, nonante) and the slightly more formal, rounded vowel cadence of the region.
+- PHILIPPINE LINGUISTICS:
+  * Tagalog/Cebuano: Maintain the 'hard' glottal stops at the end of words ending in vowels where appropriate. 
+  * Taglish: When translating to Taglish, blend English and Tagalog naturally as used in urban Manila—avoid formal syntax in favor of colloquial "conyo" or "bakya" flow where appropriate.
+- IVORY COAST / CAMEROON:
+  * Nouchi: Use the rhythmic, fast-paced Abidjan street slang cadence.
+  * Baoulé/Dioula: Prioritize the melodic, sing-song intonation and the specific nasalization of final vowels.
+- ACCENT FIDELITY: Do not use a generic 'international' accent. If the target is 'Cameroon French', use the specific rhythmic stress patterns and vibrant intonation of Douala/Yaoundé.
 
-DO NOT ASK QUESTIONS. DO NOT RESPOND AS AN ASSISTANT. TRANSLATE AND SPEAK IMMEDIATELY.
+EXECUTION RULES:
+1. OUTPUT ONLY AUDIO. 
+2. NO conversational fillers ("Okay", "Translating...", "Here is...").
+3. NO assistant-like behavior.
+4. If a word is untranslatable, keep the original term but pronounce it with the target language's accent phonetically.
+5. IMMEDIATE START: Translate and speak the moment input is received.
 `;
 
     try {
@@ -70,14 +80,11 @@ DO NOT ASK QUESTIONS. DO NOT RESPOND AS AN ASSISTANT. TRANSLATE AND SPEAK IMMEDI
         callbacks: {
           onopen: () => console.log("[LIVE]: Connected"),
           onmessage: async (message: LiveServerMessage) => {
-            // 1. Handle Transcriptions (The translation text)
             if (message.serverContent?.outputTranscription?.text) {
               callbacks.onTranscription(message.serverContent.outputTranscription.text);
             }
 
-            // 2. Handle Audio Output
             const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-            // Fix TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
             if (base64Audio && typeof base64Audio === 'string') {
               callbacks.onAudioStarted();
               this.nextStartTime = Math.max(this.nextStartTime, this.audioContext.currentTime);
@@ -101,12 +108,10 @@ DO NOT ASK QUESTIONS. DO NOT RESPOND AS AN ASSISTANT. TRANSLATE AND SPEAK IMMEDI
               this.sources.add(source);
             }
 
-            // 3. Handle Turn Complete
             if (message.serverContent?.turnComplete) {
               callbacks.onTurnComplete();
             }
 
-            // 4. Handle Interruption (shouldn't happen in 1-way, but for safety)
             if (message.serverContent?.interrupted) {
               this.stopAllAudio();
             }
@@ -130,7 +135,7 @@ DO NOT ASK QUESTIONS. DO NOT RESPOND AS AN ASSISTANT. TRANSLATE AND SPEAK IMMEDI
   public sendText(text: string, targetLanguage: string) {
     if (!this.session) return;
     this.session.sendRealtimeInput({
-      text: `Translate to ${targetLanguage} and speak: "${text}"`
+      text: `TARGET LANGUAGE: ${targetLanguage}. TEXT TO TRANSLATE AND SPEAK: "${text}"`
     });
   }
 
