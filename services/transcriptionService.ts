@@ -42,7 +42,8 @@ export class TranscriptionService {
     engine: TranscriptionEngine,
     source: InputSource,
     onTranscript: (text: string) => void,
-    onError: (err: any) => void
+    onError: (err: any) => void,
+    deviceId?: string
   ) {
     this.stop(); // Ensure clean slate
 
@@ -56,15 +57,15 @@ export class TranscriptionService {
     }
 
     if (engine === 'main') {
-      await this.startDeepgram(source, onTranscript, onError);
+      await this.startDeepgram(source, onTranscript, onError, deviceId);
     } else if (engine === 'pro') {
       this.startWebSpeech(onTranscript, onError);
     } else if (engine === 'beta') {
-      await this.startGeminiLive(source, onTranscript, onError);
+      await this.startGeminiLive(source, onTranscript, onError, deviceId);
     }
   }
 
-  private async startDeepgram(source: InputSource, onTranscript: (text: string) => void, onError: (err: any) => void) {
+  private async startDeepgram(source: InputSource, onTranscript: (text: string) => void, onError: (err: any) => void, deviceId?: string) {
     const url = `wss://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&language=multi&punctuate=true`;
     
     try {
@@ -77,7 +78,9 @@ export class TranscriptionService {
           let stream: MediaStream;
           
           if (source === 'mic') {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream = await navigator.mediaDevices.getUserMedia({ 
+              audio: deviceId && deviceId !== 'default' ? { deviceId: { exact: deviceId } } : true 
+            });
           } else if (source === 'screen') {
             stream = await (navigator.mediaDevices as any).getDisplayMedia({ 
               video: true, 
@@ -145,7 +148,7 @@ export class TranscriptionService {
     }
   }
 
-  private async startGeminiLive(source: InputSource, onTranscript: (text: string) => void, onError: (err: any) => void) {
+  private async startGeminiLive(source: InputSource, onTranscript: (text: string) => void, onError: (err: any) => void, deviceId?: string) {
     console.log("[ORBIT BETA]: Connecting to Gemini Live Transcriber...");
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
@@ -159,7 +162,9 @@ export class TranscriptionService {
           throw new Error("System audio share not detected.");
         }
       } else {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: deviceId && deviceId !== 'default' ? { deviceId: { exact: deviceId } } : true 
+        });
       }
 
       this.liveSessionPromise = ai.live.connect({

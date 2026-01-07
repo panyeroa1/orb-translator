@@ -12,6 +12,7 @@ import { useDraggable } from './hooks/useDraggable';
 import Orb from './components/Orb';
 import { GeminiLiveService } from './services/geminiService';
 import { TranscriptionService } from './services/transcriptionService';
+import { AmbientSoundService } from './services/ambientSoundService';
 import { 
   fetchLatestTranscription, 
   pushTranscription,
@@ -50,9 +51,10 @@ const App: React.FC = () => {
   const [fullTranscription, setFullTranscription] = useState<string>(() => localStorage.getItem('orb_full_transcript') || "");
   const [showSubtitles, setShowSubtitles] = useState<boolean>(() => localStorage.getItem('orb_show_subtitles') !== 'false');
   
-  // Subtitle Progress State
+  // Subtitle Progress & Visibility State
   const [subtitleProgress, setSubtitleProgress] = useState(0);
   const [isSubtitleVisible, setIsSubtitleVisible] = useState(false);
+  const [subtitleOpacity, setSubtitleOpacity] = useState(false);
 
   // Speaker Tab & Device Detection State
   const [transcriptionEngine, setTranscriptionEngine] = useState<TranscriptionEngine>(() => (localStorage.getItem('orb_engine') as TranscriptionEngine) || 'main');
@@ -61,6 +63,12 @@ const App: React.FC = () => {
   const [screenStatus, setScreenStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [hasMicHardware, setHasMicHardware] = useState<boolean>(false);
   const [detectedDevices, setDetectedDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedMicrophoneId, setSelectedMicrophoneId] = useState(() => localStorage.getItem('orb_mic_id') || 'default');
+
+  const audioInputDevices = useMemo(() => 
+    detectedDevices.filter(d => d.kind === 'audioinput'), 
+    [detectedDevices]
+  );
 
   // Key Rotation State
   const [orbitKeys, setOrbitKeys] = useState<string[]>([]);
@@ -81,6 +89,7 @@ const App: React.FC = () => {
   
   const liveServiceRef = useRef<GeminiLiveService | null>(null);
   const transcriptionServiceRef = useRef<TranscriptionService>(new TranscriptionService());
+  const ambientSoundRef = useRef<AmbientSoundService>(new AmbientSoundService());
   const analyserRef = useRef<AnalyserNode | null>(null);
   const pollingTimerRef = useRef<number | null>(null);
   const errorTimeoutRef = useRef<number | null>(null);
@@ -101,6 +110,11 @@ const App: React.FC = () => {
       setStatus(OrbStatus.IDLE);
     }, 5000);
   }, []);
+
+  // Update ambient sounds when status or monitoring changes
+  useEffect(() => {
+    ambientSoundRef.current.setStatus(status, isMonitoring);
+  }, [status, isMonitoring]);
 
   const refreshDeviceDetection = useCallback(async () => {
     try {
@@ -200,6 +214,7 @@ const App: React.FC = () => {
     
     setSubtitleProgress(0);
     setIsSubtitleVisible(true);
+    setSubtitleOpacity(true); // Ensure visible when starting
     
     const startTime = Date.now();
     const totalMs = duration * 1000;
@@ -211,10 +226,17 @@ const App: React.FC = () => {
       
       if (progress >= 100) {
         clearInterval(progressIntervalRef.current!);
+        
+        // Start smooth exit sequence
         setTimeout(() => {
-          setIsSubtitleVisible(false);
-          setSubtitleProgress(0);
-        }, 500);
+          setSubtitleOpacity(false); // Trigger CSS transition
+          
+          // Unmount from DOM after transition completes (1s)
+          setTimeout(() => {
+            setIsSubtitleVisible(false);
+            setSubtitleProgress(0);
+          }, 1000);
+        }, 500); // Small pause at 100% before starting fade
       }
     }, 32);
   }, []);
@@ -246,6 +268,7 @@ const App: React.FC = () => {
         if (msg.includes("429") || msg.includes("quota")) rotateKeyAndReconnect();
         triggerError("Matrix Voice Error.");
         isBusyRef.current = false;
+        setSubtitleOpacity(false);
         setIsSubtitleVisible(false);
       }
     };
@@ -304,13 +327,14 @@ const App: React.FC = () => {
             pushTranscription(meetingId, text); 
           }
         },
-        (err) => triggerError(err.message)
+        (err) => triggerError(err.message),
+        selectedMicrophoneId
       );
     };
 
     startRecording();
     return () => transcriptionServiceRef.current.stop();
-  }, [isMonitoring, settingsTab, transcriptionEngine, inputSource, meetingId, triggerError, hasMicHardware, updateTranscriptionState]);
+  }, [isMonitoring, settingsTab, transcriptionEngine, inputSource, meetingId, triggerError, hasMicHardware, updateTranscriptionState, selectedMicrophoneId]);
 
   useEffect(() => {
     loadOrbitKeys();
@@ -350,10 +374,10 @@ const App: React.FC = () => {
 
   return (
     <div className="fixed inset-0 pointer-events-none text-white font-sans bg-transparent">
-      {/* Subtitle Display - Augmented with Lifting logic for embedded mode */}
+      {/* Subtitle Display - Refined with 1s Fade Out Logic and Embedded Lift */}
       {isMonitoring && showSubtitles && isSubtitleVisible && currentTranscriptionText && (
         <div 
-          className="absolute left-1/2 -translate-x-1/2 w-fit max-w-[80vw] z-[40] animate-in fade-in slide-in-from-bottom-2 duration-300"
+          className={`absolute left-1/2 -translate-x-1/2 w-fit max-w-[80vw] z-[40] transition-opacity duration-1000 ${subtitleOpacity ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
           style={{ bottom: isEmbedded ? 'calc(120px + 3rem)' : '3rem' }}
         >
           <div className="relative bg-black/80 backdrop-blur-2xl border border-white/20 rounded-[2rem] py-4 px-10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden">
@@ -499,6 +523,26 @@ const App: React.FC = () => {
                         </select>
                         <p className="mt-2 text-[7px] text-white/40 uppercase tracking-widest leading-relaxed">Choose how your voice or system audio is captured to be translated by the network.</p>
                       </div>
+
+                      {inputSource === 'mic' && audioInputDevices.length > 1 && (
+                        <div className="animate-in fade-in slide-in-from-top-1 duration-300">
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Device Matrix Select</label>
+                          <select 
+                            value={selectedMicrophoneId} 
+                            onChange={e => {
+                              setSelectedMicrophoneId(e.target.value);
+                              localStorage.setItem('orb_mic_id', e.target.value);
+                            }} 
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-emerald-500/50"
+                          >
+                            {audioInputDevices.map(device => (
+                              <option key={device.deviceId} value={device.deviceId} className="bg-slate-900">
+                                {device.label || `Hardware Node ${device.deviceId.slice(0, 8)}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Orbital Transcription Engine</label>

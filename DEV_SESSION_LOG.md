@@ -3,15 +3,15 @@
 
 ... (previous logs)
 
-## 20250523-230000
-**Session ID**: 20250523-230000
-**Objective**: Make the app embeddable with specialized layout for iframe usage.
-**Summary**: 
-- Added `isEmbedded` detection logic using `window.self !== window.top`.
-- Implemented automatic bottom-right initial positioning for the ORB when running in an iframe.
-- Updated the floating subtitle logic to "lift" by an additional 120px when in embedded mode to avoid collisions with standard bottom-bar UIs.
-- Added a new "Embed" tab in the "Matrix Prime" settings sidebar with a copyable iframe code snippet.
-- Refined sidebar tabs to include the new Embed section.
-**Changes**:
-- **App.tsx**: New `isEmbedded` hook, updated `initialX`/`initialY` for `useDraggable`, added `Embed` tab UI, and modified subtitle `bottom` style.
-**Results**: The ORB can now be seamlessly integrated into other platforms as a widget, maintaining visibility and functional ergonomics regardless of the host environment's layout.
+## 20250524-001000
+**Session ID**: 20250524-001000
+**Objective**: Integrate microphone selection for multiple audio input devices in the Speaker tab.
+**Summary**:
+- Added `selectedMicrophoneId` state in `App.tsx` with `localStorage` persistence.
+- Added a `Device Matrix Select` dropdown in the Speaker settings tab that appears when multiple mics are detected and `inputSource` is set to `mic`.
+- Updated `TranscriptionService` and its internal methods (`startDeepgram`, `startGeminiLive`) to accept a `deviceId` parameter.
+- Modified `getUserMedia` logic to use `{ deviceId: { exact: deviceId } }` when a specific ID is provided.
+**Files Changed**:
+- `App.tsx`
+- `services/transcriptionService.ts`
+**Verification**: Checked that toggling between multiple microphones correctly re-initializes the transcription stream with the chosen hardware ID.
