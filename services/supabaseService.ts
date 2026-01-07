@@ -8,9 +8,6 @@ const HEADERS = {
   'Content-Type': 'application/json',
 };
 
-/**
- * Fetches the list of supported languages/dialects from the 'languages' table.
- */
 export async function fetchLanguages(): Promise<Language[] | null> {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/languages?select=code,name&order=name.asc`, {
@@ -21,14 +18,11 @@ export async function fetchLanguages(): Promise<Language[] | null> {
     if (!response.ok) return null;
     return await response.json();
   } catch (error) {
-    console.error('Supabase fetch languages failed:', error);
+    console.error('[ORBIT]: Linguistics retrieval failed.', error);
     return null;
   }
 }
 
-/**
- * Fetches the list of available Gemini voices from the 'voices' table.
- */
 export async function fetchVoices(): Promise<{id: string, name: string}[] | null> {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/voices?select=id,name&order=name.asc`, {
@@ -39,14 +33,11 @@ export async function fetchVoices(): Promise<{id: string, name: string}[] | null
     if (!response.ok) return null;
     return await response.json();
   } catch (error) {
-    console.error('Supabase fetch voices failed:', error);
+    console.error('[ORBIT]: Synthesizer retrieval failed.', error);
     return null;
   }
 }
 
-/**
- * Fetches the latest transcription segment for a specific meeting.
- */
 export async function fetchLatestTranscription(meetingId: string): Promise<string | null> {
   if (!meetingId) return null;
 
@@ -60,50 +51,95 @@ export async function fetchLatestTranscription(meetingId: string): Promise<strin
       }
     );
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Supabase fetch transcription error:', response.status, errText);
-      return null;
-    }
-
+    if (!response.ok) return null;
     const data = await response.json();
     return data && data.length > 0 ? data[0].transcribe_text_segment : null;
   } catch (error) {
-    console.error('Supabase connection failed (Transcription):', error);
     return null;
   }
 }
 
-/**
- * Registers an anonymous user in the 'users' table.
- */
 export async function registerUser(userId: string): Promise<boolean> {
   if (!userId) return false;
-
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
       method: 'POST',
       mode: 'cors',
-      headers: {
-        ...HEADERS,
-        'Prefer': 'resolution=ignore-duplicates'
-      },
+      headers: { ...HEADERS, 'Prefer': 'resolution=ignore-duplicates' },
       body: JSON.stringify([{ id: userId }])
+    });
+    return response.ok || response.status === 409;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * ORBIT KEY MANAGEMENT
+ */
+
+const ADMIN_CONFIG_KEY = 'orbit_api_keys';
+
+export async function getOrbitKeys(): Promise<string[]> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/admin_config?key=eq.${ADMIN_CONFIG_KEY}&select=value`, {
+      method: 'GET',
+      mode: 'cors',
+      headers: HEADERS
+    });
+    if (!response.ok) {
+      console.warn("[ORBIT]: Memory bank access restricted or empty.");
+      return [];
+    }
+    const data = await response.json();
+    if (data && data.length > 0 && Array.isArray(data[0].value?.keys)) {
+      return data[0].value.keys;
+    }
+    return [];
+  } catch (e) {
+    console.error("[ORBIT]: Memory retrieval system failure.");
+    return [];
+  }
+}
+
+export async function addOrbitKey(newKey: string): Promise<boolean> {
+  if (!newKey) return false;
+  try {
+    // 1. Retrieve current pool
+    const existingKeys = await getOrbitKeys();
+    
+    // If already exists, consider it a success
+    if (existingKeys.includes(newKey)) return true;
+    
+    // 2. Update pool (FIFO capped at 20)
+    const updatedKeys = [...existingKeys, newKey].slice(-20);
+    const payload = {
+      key: ADMIN_CONFIG_KEY,
+      value: { keys: updatedKeys },
+      updated_at: new Date().toISOString()
+    };
+
+    // 3. Upsert into admin_config
+    // Crucial: ?on_conflict=key tells Supabase to merge based on the 'key' column unique constraint
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/admin_config?on_conflict=key`, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 
+        ...HEADERS, 
+        'Prefer': 'resolution=merge-duplicates,return=minimal' 
+      },
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      if (errText.includes('42501') || response.status === 401) {
-        console.warn('SUPABASE RLS ERROR (42501): Check public.users insert policy.');
-        return true; 
-      }
-      if (response.status === 409) return true;
+      const errBody = await response.text();
+      console.error("[ORBIT]: Token injection rejected by server.", errBody);
       return false;
     }
 
     return true;
-  } catch (error) {
-    console.error('Register user fetch failed:', error);
+  } catch (e) {
+    console.error("[ORBIT]: Token persistence hardware failure.", e);
     return false;
   }
 }
