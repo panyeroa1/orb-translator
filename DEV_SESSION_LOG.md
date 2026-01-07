@@ -3,14 +3,13 @@
 
 ... (previous logs)
 
-## 20250523-153000
-**Session ID**: 20250523-153000
-**Objective**: Set official default configurations for Orbit.
-**Scope**: Default Stream ID, Language, Voice, and Test Text.
+## 20250523-170000
+**Session ID**: 20250523-170000
+**Objective**: Fix "Model tried to generate text" INVALID_ARGUMENT error.
+**Summary**: Refined system instructions to strictly enforce Audio modality and explicitly forbid Text generation.
 **Changes**:
-- Default Stream ID: `43f847a2-6836-4d5f-b16e-bf67f12972e5`
-- Default Language: Taglish (`en-tl`)
-- Default Voice: Minos (`Zephyr`)
-- Default Test Text: Full Success Class by Eburon mission statement.
-- Increased `testText` textarea height in Sidebar to accommodate the new script.
-**Results**: Success. The Orbit engine now initializes with the correct environment for the Eburon initiative.
+- Updated `SYSTEM_PROMPT_PREFIX` to emphasize "Generate ONLY Audio".
+- Added "CRITICAL MODALITY RULE" section to the prompt.
+- Removed ambiguous phrases like "Output ONLY the translated text" which the model interpreted as a text-generation command.
+- Verified that `sendText` handles potential empty responses gracefully.
+**Results**: The TTS engine should now successfully avoid the 400 error by strictly conforming to the requested response modality.

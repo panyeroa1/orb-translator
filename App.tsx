@@ -18,16 +18,12 @@ import {
 
 const DEFAULT_TEST_TEXT = `Welcome to Orbit, the real-time translation and voice experience developed under the Success Class by Eburon initiative.
 This platform is designed to remove language barriers without changing meaning, emotion, or intent.
-
 Every word you hear must remain faithful to the original message.
 No simplification. No censorship. No loss of tone.
-
 Orbit is used in live classrooms, professional training, and real-world communication where accuracy matters.
 When a teacher speaks, the students listen in their own language — clearly, naturally, and instantly.
-
 Success Class by Eburon exists to empower people through understanding, not shortcuts.
 Knowledge should travel freely, across borders, accents, and cultures.
-
 This is not just translation.
 This is voice, context, and human nuance — delivered in real time.`;
 
@@ -47,7 +43,7 @@ const App: React.FC = () => {
   const [availableLanguages, setAvailableLanguages] = useState<Language[]>(FALLBACK_LANGUAGES);
   const [availableVoices, setAvailableVoices] = useState<{id: string, name: string}[]>(FALLBACK_VOICES);
   const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('orb_lang') || 'en-tl');
-  const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('orb_voice') || 'Zephyr');
+  const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('orb_voice') || 'Orus');
   const [meetingId, setMeetingId] = useState(() => localStorage.getItem('orb_meeting_id') || '43f847a2-6836-4d5f-b16e-bf67f12972e5');
   const [testText, setTestText] = useState(DEFAULT_TEST_TEXT);
   
