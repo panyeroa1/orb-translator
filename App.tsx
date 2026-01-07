@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState(false);
+  const [regFeedback, setRegFeedback] = useState(false);
   
   // Settings State
   const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('orb_lang') || 'en');
@@ -49,18 +50,29 @@ const App: React.FC = () => {
   const currentTranslationRef = useRef<string>('');
   const currentOriginalRef = useRef<string>('');
 
-  const ensureUserAccount = useCallback(async () => {
+  const ensureUserAccount = useCallback(async (force: boolean = false) => {
     let currentId = localStorage.getItem('orb_user_id') || userId;
-    if (!currentId) {
-      currentId = crypto.randomUUID();
-      localStorage.setItem('orb_user_id', currentId);
+    if (!currentId || force) {
+      if (!currentId) {
+        currentId = crypto.randomUUID();
+        localStorage.setItem('orb_user_id', currentId);
+      }
       setUserId(currentId);
-      await registerUser(currentId);
+      const success = await registerUser(currentId);
+      if (success && force) {
+        setRegFeedback(true);
+        setTimeout(() => setRegFeedback(false), 2000);
+      }
     } else if (!userId) {
       setUserId(currentId);
     }
     return currentId;
   }, [userId]);
+
+  // Initialize User on Mount
+  useEffect(() => {
+    ensureUserAccount();
+  }, []);
 
   const processNextInQueue = useCallback(async () => {
     if (isBusyRef.current || textQueueRef.current.length === 0 || !liveServiceRef.current) return;
@@ -186,8 +198,6 @@ const App: React.FC = () => {
     const dt = Date.now() - pressStartPosRef.current.time;
 
     if (dx < 10 && dy < 10 && dt < 250) {
-      const storedUserId = localStorage.getItem('orb_user_id');
-      if (!storedUserId) await ensureUserAccount();
       if (!meetingId) setIsSidebarOpen(true);
       else setIsMonitoring(prev => !prev);
     }
@@ -229,7 +239,7 @@ const App: React.FC = () => {
 
   return (
     <div className="fixed inset-0 pointer-events-none text-white font-sans bg-transparent">
-      {/* Settings Toggle - Persistent Shadow */}
+      {/* Settings Toggle */}
       <div className="absolute top-0 right-0 p-6 pointer-events-auto z-50">
         <button 
           onClick={() => setIsSidebarOpen(true)} 
@@ -248,10 +258,10 @@ const App: React.FC = () => {
           <div 
             className="resizable-modal bg-slate-950/98 backdrop-blur-[60px] border-2 border-white/20 transform transition-all pointer-events-auto shadow-[0_40px_100px_rgba(0,0,0,0.9)] flex flex-col rounded-[2.5rem] overflow-hidden"
             style={{ 
-              width: '420px', 
-              height: '80vh', 
-              minWidth: '320px', 
-              minHeight: '500px', 
+              width: '440px', 
+              height: '85vh', 
+              minWidth: '340px', 
+              minHeight: '600px', 
               resize: 'both' 
             }}
           >
@@ -273,6 +283,24 @@ const App: React.FC = () => {
 
             {/* Modal Content */}
             <div className="flex-1 overflow-y-auto space-y-8 p-8 custom-scrollbar">
+              
+              {/* Neural Identity Display */}
+              <div className="bg-slate-900/60 p-6 rounded-[2rem] border border-white/10">
+                <div className="flex justify-between items-center mb-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Neural Identity (User UUID)</label>
+                  <button 
+                    onClick={() => ensureUserAccount(true)}
+                    className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all ${regFeedback ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'}`}
+                  >
+                    {regFeedback ? 'Registered' : 'Register Identity'}
+                  </button>
+                </div>
+                <div className="bg-black/40 p-4 rounded-xl border border-white/5 font-mono text-[11px] text-cyan-400/80 break-all leading-tight">
+                  {userId || 'Awaiting Initialization...'}
+                </div>
+                <p className="mt-3 text-[9px] text-white/20 italic">This ID is saved in your 'users' table on Supabase.</p>
+              </div>
+
               {/* Manual Injector */}
               <div className="bg-gradient-to-br from-cyan-500/20 to-blue-600/20 p-6 rounded-[2rem] border border-cyan-500/40 shadow-inner">
                 <label className="block text-[11px] font-black text-cyan-300 uppercase tracking-[0.25em] mb-4">Neural Override</label>
@@ -297,8 +325,9 @@ const App: React.FC = () => {
               {/* Settings Grid */}
               <div className="space-y-6">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Target Endpoint</label>
-                  <input type="text" value={meetingId} onChange={(e) => setMeetingId(e.target.value)} className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all font-mono shadow-inner" placeholder="ID-SEQUENCE" />
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 opacity-70">Transcribe Stream ID (meeting_id)</label>
+                  <input type="text" value={meetingId} onChange={(e) => setMeetingId(e.target.value)} className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all font-mono shadow-inner text-cyan-100" placeholder="e.g. f47ac10b-..." />
+                  <p className="mt-2 text-[9px] text-white/20 px-1 italic">Enter the meeting_id from your Supabase 'transcriptions' table.</p>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
