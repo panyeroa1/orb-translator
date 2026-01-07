@@ -71,13 +71,14 @@ DO NOT ASK QUESTIONS. DO NOT RESPOND AS AN ASSISTANT. TRANSLATE AND SPEAK IMMEDI
           onopen: () => console.log("[LIVE]: Connected"),
           onmessage: async (message: LiveServerMessage) => {
             // 1. Handle Transcriptions (The translation text)
-            if (message.serverContent?.outputTranscription) {
+            if (message.serverContent?.outputTranscription?.text) {
               callbacks.onTranscription(message.serverContent.outputTranscription.text);
             }
 
             // 2. Handle Audio Output
             const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-            if (base64Audio) {
+            // Fix TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+            if (base64Audio && typeof base64Audio === 'string') {
               callbacks.onAudioStarted();
               this.nextStartTime = Math.max(this.nextStartTime, this.audioContext.currentTime);
               

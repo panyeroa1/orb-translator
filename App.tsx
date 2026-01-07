@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { OrbStatus, AudioSegment, HistoryEntry } from './types';
+import { OrbStatus, HistoryEntry } from './types';
 import {
   POLLING_INTERVAL_MIN,
   POLLING_INTERVAL_MAX,
@@ -49,17 +49,18 @@ const App: React.FC = () => {
   const currentOriginalRef = useRef<string>('');
 
   const ensureUserAccount = useCallback(async () => {
-    let currentId = userId;
+    let currentId = localStorage.getItem('orb_user_id') || userId;
     if (!currentId) {
       currentId = crypto.randomUUID();
       localStorage.setItem('orb_user_id', currentId);
       setUserId(currentId);
       await registerUser(currentId);
+    } else if (!userId) {
+      setUserId(currentId);
     }
     return currentId;
   }, [userId]);
 
-  // Process the queue sequentially
   const processNextInQueue = useCallback(async () => {
     if (isBusyRef.current || textQueueRef.current.length === 0 || !liveServiceRef.current) return;
     
@@ -75,13 +76,13 @@ const App: React.FC = () => {
   }, [selectedLanguage]);
 
   useEffect(() => {
-    const service = new GeminiLiveService(process.env.API_KEY || '');
+    const apiKey = (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY || '';
+    const service = new GeminiLiveService(apiKey);
     liveServiceRef.current = service;
     analyserRef.current = service.getAnalyser();
     return () => service.disconnect();
   }, []);
 
-  // Sync monitoring state with Live Session
   useEffect(() => {
     if (isMonitoring && liveServiceRef.current) {
       const langName = LANGUAGES.find(l => l.code === selectedLanguage)?.name || 'English';
@@ -93,13 +94,11 @@ const App: React.FC = () => {
           setStatus(OrbStatus.SPEAKING);
         },
         onAudioEnded: () => {
-          // Only move to IDLE if the turn is also complete
           if (!currentTurnActiveRef.current) {
             setStatus(OrbStatus.IDLE);
           }
         },
         onTurnComplete: () => {
-          // Turn finished. Add to history.
           if (currentTranslationRef.current) {
             const newEntry: HistoryEntry = {
               id: Math.random().toString(36).substring(7),
@@ -107,7 +106,11 @@ const App: React.FC = () => {
               translatedText: currentTranslationRef.current,
               timestamp: Date.now()
             };
-            setHistory(prev => [newEntry, ...prev].slice(0, 50));
+            setHistory(prev => {
+              const updated = [newEntry, ...prev].slice(0, 50);
+              localStorage.setItem('orb_history', JSON.stringify(updated));
+              return updated;
+            });
           }
           
           currentTurnActiveRef.current = false;
@@ -131,7 +134,6 @@ const App: React.FC = () => {
     }
   }, [isMonitoring, selectedLanguage, selectedVoice, systemPrompt, processNextInQueue]);
 
-  // Supabase Polling
   useEffect(() => {
     let tid: any;
     const poll = async () => {
@@ -149,7 +151,10 @@ const App: React.FC = () => {
             seenHashesRef.current.add(h);
             textQueueRef.current.push(delta);
             processNextInQueue();
-            if (seenHashesRef.current.size > 100) seenHashesRef.current.delete(seenHashesRef.current.values().next().value);
+            if (seenHashesRef.current.size > 100) {
+              const firstValue = seenHashesRef.current.values().next().value;
+              if (firstValue !== undefined) seenHashesRef.current.delete(firstValue);
+            }
           }
         }
         lastTextRef.current = cur;
@@ -180,7 +185,8 @@ const App: React.FC = () => {
     const dt = Date.now() - pressStartPosRef.current.time;
 
     if (dx < 10 && dy < 10 && dt < 250) {
-      await ensureUserAccount();
+      const storedUserId = localStorage.getItem('orb_user_id');
+      if (!storedUserId) await ensureUserAccount();
       if (!meetingId) setIsSidebarOpen(true);
       else setIsMonitoring(prev => !prev);
     }
@@ -205,50 +211,150 @@ const App: React.FC = () => {
     setTimeout(() => setSaveFeedback(false), 2000);
   };
 
+  const embedCode = `<iframe src="${window.location.origin}" width="400" height="600" frameborder="0" style="background:transparent; pointer-events:none;" allow="microphone"></iframe>`;
+
+  const copyEmbedCode = () => {
+    navigator.clipboard.writeText(embedCode);
+    alert('Embed code copied to clipboard!');
+  };
+
   return (
-    <div className="fixed inset-0 pointer-events-none text-white font-sans">
+    <div className="fixed inset-0 pointer-events-none text-white font-sans bg-transparent">
+      {/* Settings Toggle */}
       <div className="absolute top-0 right-0 p-6 pointer-events-auto z-50">
-        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-full bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 transition-all backdrop-blur-md">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        <button 
+          onClick={() => setIsSidebarOpen(true)} 
+          className="p-2 rounded-full bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 transition-all backdrop-blur-md shadow-xl"
+        >
+          <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
         </button>
       </div>
 
-      <div className={`fixed top-0 right-0 h-full w-80 bg-slate-900/95 backdrop-blur-xl border-l border-white/10 p-8 transform transition-transform duration-300 ease-in-out pointer-events-auto z-[60] flex flex-col ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="flex justify-between items-center mb-8 shrink-0">
-          <h2 className="text-xl font-bold text-cyan-400">Configuration</h2>
-          <button onClick={() => setIsSidebarOpen(false)} className="text-white/60 hover:text-white"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-        </div>
+      {/* Resizable Modal Node */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-[60] p-4 pointer-events-none">
+          <div 
+            className="resizable-modal bg-slate-900/98 backdrop-blur-3xl border border-white/10 transform transition-all pointer-events-auto shadow-[-20px_0_50px_rgba(0,0,0,0.5)] flex flex-col rounded-3xl overflow-hidden"
+            style={{ 
+              width: '380px', 
+              height: '80vh', 
+              minWidth: '300px', 
+              minHeight: '400px', 
+              resize: 'both' 
+            }}
+          >
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 shrink-0 border-b border-white/10 bg-black/20">
+              <h2 className="text-xl font-black text-cyan-400 tracking-tighter uppercase italic">Control Matrix</h2>
+              <button 
+                onClick={() => setIsSidebarOpen(false)} 
+                className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-        <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
-          <div className="bg-cyan-500/5 p-4 rounded-xl border border-cyan-500/20">
-            <label className="block text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Instant Test</label>
-            <div className="flex gap-2">
-              <input type="text" value={testText} onChange={(e) => setTestText(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') { textQueueRef.current.push(testText); processNextInQueue(); setTestText(''); } }} className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-cyan-500 transition-colors" placeholder="Type to speak..." />
-              <button onClick={() => { textQueueRef.current.push(testText); processNextInQueue(); setTestText(''); }} className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 p-2 rounded-lg transition-colors"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg></button>
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto space-y-7 p-6 custom-scrollbar">
+              <div className="bg-gradient-to-br from-cyan-500/10 to-blue-600/10 p-5 rounded-2xl border border-cyan-500/30 shadow-inner">
+                <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-3">Live Feed Injector</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={testText} 
+                    onChange={(e) => setTestText(e.target.value)} 
+                    onKeyDown={(e) => { if(e.key === 'Enter' && testText) { textQueueRef.current.push(testText); processNextInQueue(); setTestText(''); } }} 
+                    className="flex-1 bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-cyan-50 placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all" 
+                    placeholder="Manual override text..." 
+                  />
+                  <button 
+                    onClick={() => { if(testText) { textQueueRef.current.push(testText); processNextInQueue(); setTestText(''); } }} 
+                    className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 p-3 rounded-xl transition-all active:scale-90 shadow-lg shadow-cyan-500/20"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Identity Signature</label><div className="text-[10px] font-mono text-cyan-200/50 break-all bg-white/5 p-3 rounded-xl border border-white/5 shadow-inner">{userId || 'Awaiting activation...'}</div></div>
+                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Meeting Target ID</label><input type="text" value={meetingId} onChange={(e) => setMeetingId(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all" placeholder="e.g. ALPHA-9" /></div>
+                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Target Language</label><select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all appearance-none">{LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-slate-900">{l.name}</option>)}</select></div>
+                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Vocal Matrix</label><select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all appearance-none">{GREEK_VOICES.map(v => <option key={v.id} value={v.id} className="bg-slate-900">{v.name}</option>)}</select></div>
+                <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-60">Core Heuristics</label><textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="w-full h-24 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all resize-none scrollbar-hide" /></div>
+              </div>
+
+              <button 
+                onClick={saveSettings} 
+                className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all shadow-lg active:scale-95 ${saveFeedback ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/30 shadow-cyan-500/10'}`}
+              >
+                {saveFeedback ? 'Matrix Synced' : 'Commit Configuration'}
+              </button>
+
+              <div className="pt-8 border-t border-white/10">
+                <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-3">Embed Code</label>
+                <div className="relative group">
+                  <div className="text-[10px] font-mono text-white/40 bg-black/40 p-3 rounded-xl border border-white/5 break-all max-h-24 overflow-y-auto">
+                    {embedCode}
+                  </div>
+                  <button 
+                    onClick={copyEmbedCode}
+                    className="absolute top-2 right-2 p-1.5 bg-cyan-500 rounded-lg text-slate-900 hover:scale-110 transition-transform opacity-0 group-hover:opacity-100"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-8 border-t border-white/10">
+                <div className="flex justify-between items-center mb-5">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-60">Log History</label>
+                  <button onClick={() => { setHistory([]); localStorage.removeItem('orb_history'); }} className="text-[10px] text-rose-400/60 hover:text-rose-400 font-black uppercase tracking-tighter transition-colors">Wipe Memory</button>
+                </div>
+                <div className="space-y-4">
+                  {history.length > 0 ? history.map((entry) => (
+                    <div key={entry.id} className="group bg-white/5 rounded-2xl p-4 border border-white/5 hover:border-cyan-500/40 transition-all hover:translate-x-1">
+                      <div className="text-[10px] text-white/40 mb-2 leading-tight font-medium italic">"{entry.originalText}"</div>
+                      <div className="text-xs text-cyan-300 font-bold leading-relaxed">{entry.translatedText}</div>
+                    </div>
+                  )) : (
+                    <div className="text-center py-10 text-[10px] text-white/20 uppercase tracking-widest font-black italic">No records found</div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-
-          <div><label className="block text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest mb-1.5">User ID</label><div className="text-[9px] font-mono text-white/30 break-all bg-black/20 p-2 rounded border border-white/5">{userId || 'Tap ORB to activate'}</div></div>
-          <div><label className="block text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest mb-1.5">Meeting ID</label><input type="text" value={meetingId} onChange={(e) => setMeetingId(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition-colors" /></div>
-          <div><label className="block text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest mb-1.5">Language</label><select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition-colors">{LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-slate-900">{l.name}</option>)}</select></div>
-          <div><label className="block text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest mb-1.5">Voice Persona</label><select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition-colors">{GREEK_VOICES.map(v => <option key={v.id} value={v.id} className="bg-slate-900">{v.name}</option>)}</select></div>
-          <div><label className="block text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest mb-1.5">Instruction Context</label><textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="w-full h-20 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cyan-500 transition-colors resize-none" /></div>
-
-          <button onClick={saveSettings} className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${saveFeedback ? 'bg-emerald-500 text-white' : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/30'}`}>{saveFeedback ? 'Settings Saved!' : 'Save Configuration'}</button>
-
-          <div className="pt-6 border-t border-white/10">
-            <div className="flex justify-between items-center mb-4"><label className="block text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest">History</label><button onClick={() => setHistory([])} className="text-[9px] text-white/40 hover:text-rose-400 uppercase tracking-tighter">Clear</button></div>
-            <div className="space-y-3">{history.map((entry) => (<div key={entry.id} className="bg-white/5 rounded-lg p-3 border border-white/5 hover:border-cyan-500/30 transition-all"><div className="text-[10px] text-white/60 mb-1 leading-tight">{entry.originalText}</div><div className="text-xs text-cyan-400 font-medium leading-tight">{entry.translatedText}</div></div>))}</div>
-          </div>
         </div>
-      </div>
+      )}
 
-      <div className="pointer-events-auto absolute" style={{ left: position.x, top: position.y, transition: isDragging ? 'none' : 'transform 0.1s ease-out' }}>
+      {/* Floating ORB */}
+      <div 
+        className="pointer-events-auto absolute" 
+        style={{ 
+          left: position.x, 
+          top: position.y, 
+          transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' 
+        }}
+      >
         <Orb status={status} analyser={analyserRef.current} onMouseDown={handleOrbMouseDown} isDragging={isDragging} isPressed={isPressed} isMonitoring={isMonitoring} />
-        {meetingId && <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] font-bold text-cyan-400/60 whitespace-nowrap uppercase tracking-widest">{meetingId}</div>}
+        {meetingId && (
+          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/40 rounded-full border border-white/5 text-[9px] font-black text-cyan-400/80 whitespace-nowrap uppercase tracking-[0.2em] backdrop-blur-md">
+            {meetingId}
+          </div>
+        )}
       </div>
 
-      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto z-[55]" />}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto z-[55] transition-opacity duration-500" 
+        />
+      )}
     </div>
   );
 };
