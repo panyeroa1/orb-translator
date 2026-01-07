@@ -1,0 +1,5 @@
+{
+  "name": "orb-translator",
+  "description": "A floating, draggable ORB that translates and reads aloud transcription text from a remote endpoint using Gemini 2.5 Native Audio.",
+  "requestFramePermissions": []
+}
