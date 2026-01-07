@@ -3,6 +3,7 @@ export enum OrbStatus {
   IDLE = 'Idle',
   FETCHING = 'Fetching',
   TRANSLATING = 'Translating',
+  BUFFERING = 'Buffering',
   SPEAKING = 'Speaking',
   ERROR = 'Error'
 }

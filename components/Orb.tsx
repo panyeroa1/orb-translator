@@ -23,6 +23,7 @@ const Orb: React.FC<OrbProps> = ({
 }) => {
   const isSpeaking = status === OrbStatus.SPEAKING;
   const isTranslating = status === OrbStatus.TRANSLATING;
+  const isBuffering = status === OrbStatus.BUFFERING;
 
   const getStatusColor = () => {
     if (status === OrbStatus.ERROR) return 'from-rose-400 to-red-600 shadow-rose-500/50';
@@ -30,6 +31,7 @@ const Orb: React.FC<OrbProps> = ({
     // Active states: Semi-translucent Cyan/Emerald to show the internal Visualizer
     if (isSpeaking) return 'from-cyan-500/40 to-emerald-600/40 shadow-cyan-500/30';
     if (isTranslating) return 'from-cyan-400/60 to-emerald-500/60 shadow-cyan-500/50';
+    if (isBuffering) return 'from-amber-200/40 to-yellow-400/40 shadow-amber-300/30';
     
     // Idle/Monitoring states
     const idleGradient = isMonitoring 
@@ -46,6 +48,14 @@ const Orb: React.FC<OrbProps> = ({
       onMouseDown={onMouseDown}
       onTouchStart={onMouseDown}
     >
+      {/* Outer Buffering Ring */}
+      {isBuffering && (
+        <div 
+          className="absolute inset-[-4px] border-2 border-dashed border-cyan-400/40 rounded-full animate-spin"
+          style={{ animationDuration: '3s' }}
+        />
+      )}
+
       <div className={`
         relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br ${getStatusColor()}
         flex flex-col items-center justify-center p-2 transition-all duration-300
